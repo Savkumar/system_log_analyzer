@@ -7,10 +7,11 @@ import OverloadEventsTable from './OverloadEventsTable';
 import DetailedLogTable from './DetailedLogTable';
 import LogFileUploader from './LogFileUploader';
 import useLogData from '../hooks/useLogData';
+import { TimeRange } from '../types';
 
 const ServerPerformanceAnalysis = () => {
   const { data, overloadEvents, detailedEntries, metrics, uniqueArls, loading, refreshData } = useLogData();
-  const [showRange, setShowRange] = useState<'all' | '1h'>('all');
+  const [showRange, setShowRange] = useState<TimeRange>('all');
   const [showDetailedTable, setShowDetailedTable] = useState<boolean>(false);
 
   return (

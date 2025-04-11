@@ -1,17 +1,42 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { LogData } from '../types';
+import { LogData, TimeRange } from '../types';
 import { formatTimestamp } from '../utils/logParser';
 
 interface CPUFlitChartProps {
   data: LogData[];
-  showRange: 'all' | '1h';
+  showRange: TimeRange;
 }
 
 const CPUFlitChart = ({ data, showRange }: CPUFlitChartProps) => {
-  // Filter data for 1h view if selected
-  const displayData = showRange === '1h' && data.length > 0
-    ? data.slice(-Math.min(60, data.length)) // Last 60 data points or less
-    : data;
+  // Filter data according to the selected time range
+  const getDataForRange = (range: TimeRange, data: LogData[]) => {
+    if (data.length === 0) return data;
+    
+    switch (range) {
+      case '5s':
+        return data.slice(-Math.min(5, data.length));
+      case '10s':
+        return data.slice(-Math.min(10, data.length));
+      case '15s':
+        return data.slice(-Math.min(15, data.length));
+      case '30s':
+        return data.slice(-Math.min(30, data.length));
+      case '1m':
+        return data.slice(-Math.min(60, data.length));
+      case '10m':
+        return data.slice(-Math.min(600, data.length));
+      case '30m':
+        return data.slice(-Math.min(1800, data.length));
+      case '1h':
+        return data.slice(-Math.min(3600, data.length));
+      case 'all':
+      default:
+        return data;
+    }
+  };
+  
+  // Filter data for the selected time range
+  const displayData = getDataForRange(showRange, data);
     
   return (
     <section className="mb-8">

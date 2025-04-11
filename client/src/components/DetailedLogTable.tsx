@@ -1,20 +1,45 @@
 import { useState } from 'react';
-import { DetailedLogEntry } from '../types';
+import { DetailedLogEntry, TimeRange } from '../types';
 import { formatTimestamp } from '../utils/logParser';
 
 interface DetailedLogTableProps {
   data: DetailedLogEntry[];
-  showRange: 'all' | '1h';
+  showRange: TimeRange;
 }
 
 const DetailedLogTable = ({ data, showRange }: DetailedLogTableProps) => {
   const [page, setPage] = useState(1);
   const pageSize = 15;
   
+  // Filter data according to the selected time range
+  const getDataForRange = (range: TimeRange, data: DetailedLogEntry[]) => {
+    if (data.length === 0) return data;
+    
+    switch (range) {
+      case '5s':
+        return data.slice(-Math.min(5, data.length));
+      case '10s':
+        return data.slice(-Math.min(10, data.length));
+      case '15s':
+        return data.slice(-Math.min(15, data.length));
+      case '30s':
+        return data.slice(-Math.min(30, data.length));
+      case '1m':
+        return data.slice(-Math.min(60, data.length));
+      case '10m':
+        return data.slice(-Math.min(600, data.length));
+      case '30m':
+        return data.slice(-Math.min(1800, data.length));
+      case '1h':
+        return data.slice(-Math.min(3600, data.length));
+      case 'all':
+      default:
+        return data;
+    }
+  };
+  
   // Filter data based on time range selection
-  const filteredData = showRange === '1h' && data.length > 0
-    ? data.slice(-Math.min(60, data.length))
-    : data;
+  const filteredData = getDataForRange(showRange, data);
   
   // Sort data by timestamp (most recent first for display)
   const sortedData = [...filteredData].sort((a, b) => a.timestamp - b.timestamp);
