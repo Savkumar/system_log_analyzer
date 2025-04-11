@@ -32,24 +32,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const logFile = req.files.logFile as UploadedFile;
       
-      // Check if the file is a .gz file
-      if (!logFile.name.endsWith('.gz')) {
-        return res.status(400).json({ message: 'Please upload a .gz file' });
-      }
-
       // Create a temporary file path
       const tempFilePath = logFile.tempFilePath;
       
       try {
-        // Read the gzipped file
-        const gzippedData = fs.readFileSync(tempFilePath);
+        let logContent: string;
         
-        // Decompress the gzipped data
-        const gunzip = promisify(zlib.gunzip);
-        const decompressedData = await gunzip(gzippedData);
-        
-        // Convert to string
-        const logContent = decompressedData.toString('utf8');
+        // Check file extension and process accordingly
+        if (logFile.name.endsWith('.gz')) {
+          // Process gzipped file
+          const gzippedData = fs.readFileSync(tempFilePath);
+          const gunzip = promisify(zlib.gunzip);
+          const decompressedData = await gunzip(gzippedData);
+          logContent = decompressedData.toString('utf8');
+        } 
+        else if (logFile.name.endsWith('.log') || logFile.name.endsWith('.txt')) {
+          // Process plain text files
+          logContent = fs.readFileSync(tempFilePath, 'utf8');
+        }
+        else {
+          return res.status(400).json({ 
+            message: 'Unsupported file format. Please upload a .gz, .log, or .txt file' 
+          });
+        }
         
         // Save the decompressed file to a temporary location
         const decompressedFilePath = path.join('/tmp', `log_${Date.now()}.txt`);
@@ -64,8 +69,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lines: logContent.split('\n').length
         });
       } catch (error) {
-        console.error('Error processing gzipped file:', error);
-        return res.status(500).json({ message: 'Error processing gzipped file' });
+        console.error('Error processing log file:', error);
+        return res.status(500).json({ message: 'Error processing log file' });
       } finally {
         // Clean up temporary file
         if (fs.existsSync(tempFilePath)) {

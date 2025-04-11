@@ -20,10 +20,13 @@ const LogFileUploader = ({ onFileUploaded }: LogFileUploaderProps) => {
   };
 
   const validateAndSetFile = (selectedFile: File) => {
-    if (!selectedFile.name.endsWith('.gz')) {
+    const validExtensions = ['.gz', '.log', '.txt'];
+    const fileExtension = selectedFile.name.substring(selectedFile.name.lastIndexOf('.')).toLowerCase();
+    
+    if (!validExtensions.includes(fileExtension)) {
       toast({
         title: 'Invalid file format',
-        description: 'Please select a .gz file',
+        description: 'Please select a .gz, .log, or .txt file',
         variant: 'destructive',
       });
       return;
@@ -55,7 +58,7 @@ const LogFileUploader = ({ onFileUploaded }: LogFileUploaderProps) => {
     if (!file) {
       toast({
         title: 'No file selected',
-        description: 'Please select a .gz file to upload',
+        description: 'Please select a .gz, .log, or .txt file to upload',
         variant: 'destructive',
       });
       return;
@@ -100,7 +103,7 @@ const LogFileUploader = ({ onFileUploaded }: LogFileUploaderProps) => {
   return (
     <div className="mb-8">
       <h2 className="text-xl font-semibold mb-4 flex items-center">
-        Upload Gzipped Log File
+        Upload Log File
       </h2>
       
       <div 
@@ -121,15 +124,15 @@ const LogFileUploader = ({ onFileUploaded }: LogFileUploaderProps) => {
             </div>
           ) : (
             <div className="mb-4">
-              <p className="text-gray-600 mb-2">Drag and drop a .gz file here, or click to select</p>
-              <p className="text-xs text-gray-500">Only .gz files are supported</p>
+              <p className="text-gray-600 mb-2">Drag and drop a log file here, or click to select</p>
+              <p className="text-xs text-gray-500">Supported formats: .gz, .log, .txt</p>
             </div>
           )}
           
           <label className="mb-4">
             <input 
               type="file" 
-              accept=".gz" 
+              accept=".gz,.log,.txt" 
               onChange={handleFileChange} 
               className="hidden" 
             />
