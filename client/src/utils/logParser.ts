@@ -49,13 +49,36 @@ export const parseLogFile = async (logContent: string): Promise<{
     }
     
     // Process OverloadManager processMainLoop line
-    if (line.includes('OverloadManager::processMainLoop()') && line.includes('triggered by cpu:')) {
+    // Check for both CPU and FLIT triggers. Lookout for "triggered by" patterns
+    if (line.includes('OverloadManager::processMainLoop()')) {
       const timestampMatch = line.match(/^(\d+\.\d+)/);
-      const cpuTriggerMatch = line.match(/triggered by cpu:([0-9.]+)/);
       
-      if (timestampMatch && cpuTriggerMatch) {
+      // Try to find the trigger type and value
+      let triggerType = 'cpu';
+      let triggerValue = 0;
+      
+      // Check for CPU trigger
+      const cpuTriggerMatch = line.match(/triggered by cpu:([0-9.]+)/);
+      if (cpuTriggerMatch) {
+        triggerType = 'cpu';
+        triggerValue = parseFloat(cpuTriggerMatch[1]) * 100; // Scale to percentage
+      }
+      
+      // Check for FLIT trigger
+      const flitTriggerMatch = line.match(/triggered by flit:([0-9.]+)/);
+      if (flitTriggerMatch) {
+        triggerType = 'flit';
+        triggerValue = parseFloat(flitTriggerMatch[1]) * 100; // Scale to percentage
+      }
+      
+      // Log for debugging
+      if (triggerType && triggerValue > 0) {
+        console.log(`Detected ${triggerType} trigger: ${triggerValue}%`);
+      }
+      
+      if (timestampMatch && (cpuTriggerMatch || flitTriggerMatch)) {
         const timestamp = parseFloat(timestampMatch[1]);
-        const cpuTriggerValue = parseFloat(cpuTriggerMatch[1]) * 100; // Scale to percentage
+        const triggerPercentage = triggerValue; // Already scaled to percentage
         
         // Look for the related addCandidateTarget line to get the ARLID
         const arlidLine = lines.find(l => 
