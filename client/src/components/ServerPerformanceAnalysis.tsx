@@ -3,6 +3,7 @@ import MetricsSummary from './MetricsSummary';
 import OverloadSummary from './OverloadSummary';
 import SystemResourcesChart from './SystemResourcesChart';
 import CPUFlitChart from './CPUFlitChart';
+import CRPTimelines from './CRPTimelines';
 import OverloadEventsTable from './OverloadEventsTable';
 import DetailedLogTable from './DetailedLogTable';
 import LogFileUploader from './LogFileUploader';
@@ -85,6 +86,12 @@ const ServerPerformanceAnalysis = () => {
           <CPUFlitChart 
             data={data} 
             showRange={showRange}
+          />
+          
+          <CRPTimelines
+            data={detailedEntries}
+            showRange={showRange}
+            setShowRange={setShowRange}
           />
           
           <OverloadEventsTable overloadEvents={overloadEvents} />
