@@ -1,0 +1,10 @@
+{
+  "name": "server-performance-analysis",
+  "bin": "./dist/index.js",
+  "pkg": {
+    "assets": [
+      "dist/**/*"
+    ],
+    "targets": ["node18-linux-x64"]
+  }
+}
