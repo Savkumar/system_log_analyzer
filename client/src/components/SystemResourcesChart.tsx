@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { LogData, OverloadEvent, TimeRange } from '../types';
 import { formatTimestamp } from '../utils/logParser';
@@ -16,6 +16,81 @@ const SystemResourcesChart = ({
   showRange, 
   setShowRange 
 }: SystemResourcesChartProps) => {
+  // State to track the detected trigger type (CPU, FLIT, Memory, or Requests)
+  const [triggerType, setTriggerType] = useState<'cpu' | 'flits' | 'mem' | 'reqs'>('cpu');
+  const [triggerTypeName, setTriggerTypeName] = useState<string>('CPU Trigger %');
+  
+  // Detect the trigger type based on overload events
+  useEffect(() => {
+    if (!overloadEvents || overloadEvents.length === 0) return;
+    
+    // Count occurrences of each trigger type
+    const triggerCounts = {
+      'cpu': 0,
+      'flits': 0,
+      'mem': 0,
+      'reqs': 0
+    };
+    
+    // Check for rule names and trigger_by fields in overload events
+    overloadEvents.forEach(event => {
+      const rule = event.rule?.toLowerCase() || '';
+      
+      if (rule.includes('cpu') || rule.includes('processor')) triggerCounts.cpu++;
+      else if (rule.includes('flit')) triggerCounts.flits++;
+      else if (rule.includes('mem')) triggerCounts.mem++;
+      else if (rule.includes('req') || rule.includes('hit')) triggerCounts.reqs++;
+    });
+    
+    // Find the most common trigger type
+    let maxCount = 0;
+    let detectedType: 'cpu' | 'flits' | 'mem' | 'reqs' = 'cpu'; // Default to CPU if we can't determine
+    
+    for (const [type, count] of Object.entries(triggerCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        detectedType = type as 'cpu' | 'flits' | 'mem' | 'reqs';
+      }
+    }
+    
+    // If no clear trigger type is found by rules, check the arlid field
+    if (maxCount === 0) {
+      const arlCounts: Record<string, number> = {};
+      
+      // Count occurrences of each ARL ID
+      overloadEvents.forEach(event => {
+        if (event.arlid) {
+          const arlKey = `arl-${event.arlid}`;
+          arlCounts[arlKey] = (arlCounts[arlKey] || 0) + 1;
+        }
+      });
+      
+      // If most events have the same ARL ID, it might be a FLIT-related trigger
+      const arlEntries = Object.entries(arlCounts);
+      if (arlEntries.length > 0) {
+        // Sort by count descending
+        arlEntries.sort((a, b) => b[1] - a[1]);
+        
+        // If the most common ARL ID occurs in more than 50% of events, assume it's FLIT
+        if (arlEntries[0][1] > overloadEvents.length * 0.5) {
+          detectedType = 'flits';
+        }
+      }
+    }
+    
+    // Set the detected trigger type
+    setTriggerType(detectedType);
+    
+    // Set user-friendly trigger type name
+    let displayName = 'CPU Trigger %';
+    if (detectedType === 'flits') displayName = 'FLIT Trigger %';
+    else if (detectedType === 'mem') displayName = 'Memory Trigger %';
+    else if (detectedType === 'reqs') displayName = 'Request Trigger %';
+    
+    setTriggerTypeName(displayName);
+    
+    console.log('System Resources Timeline - Detected trigger type:', detectedType, displayName);
+  }, [overloadEvents]);
   // Filter data according to the selected time range
   const getDataForRange = (range: TimeRange, data: LogData[]) => {
     if (data.length === 0) return data;
@@ -69,7 +144,7 @@ const SystemResourcesChart = ({
             </div>
             <div className="flex items-center">
               <span className="inline-block w-3 h-3 bg-[#ff8800] rounded-full mr-2"></span>
-              <span className="text-sm">CPU Trigger</span>
+              <span className="text-sm">{triggerTypeName}</span>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -137,7 +212,7 @@ const SystemResourcesChart = ({
         
         {/* CPU Usage Chart */}
         <div className="mb-6">
-          <h3 className="text-md font-medium mb-2">1. CPU Usage - CPU Trigger vs Time</h3>
+          <h3 className="text-md font-medium mb-2">1. CPU Usage - {triggerTypeName} vs Time</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -158,7 +233,7 @@ const SystemResourcesChart = ({
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
-                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, triggerTypeName];
                     return [value, name];
                   }}
                   labelFormatter={(value: number) => {
@@ -182,7 +257,7 @@ const SystemResourcesChart = ({
                   type="monotone" 
                   dataKey="triggered_by_cpu" 
                   stroke="#ff8800" 
-                  name="CPU Trigger %" 
+                  name={triggerTypeName} 
                   dot={false}
                   activeDot={true}
                 />
@@ -193,7 +268,7 @@ const SystemResourcesChart = ({
         
         {/* Flit Percentage Chart */}
         <div className="mb-6">
-          <h3 className="text-md font-medium mb-2">2. Flit Percentage - CPU Trigger vs Time</h3>
+          <h3 className="text-md font-medium mb-2">2. Flit Percentage - {triggerTypeName} vs Time</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -214,7 +289,7 @@ const SystemResourcesChart = ({
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
-                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, triggerTypeName];
                     return [value, name];
                   }}
                   labelFormatter={(value: number) => {
@@ -238,7 +313,7 @@ const SystemResourcesChart = ({
                   type="monotone" 
                   dataKey="triggered_by_cpu" 
                   stroke="#ff8800" 
-                  name="CPU Trigger %" 
+                  name={triggerTypeName} 
                   dot={false}
                   activeDot={true}
                 />
@@ -249,7 +324,7 @@ const SystemResourcesChart = ({
         
         {/* Manager Cycle Chart */}
         <div>
-          <h3 className="text-md font-medium mb-2">3. Manager Cycle (ms) - CPU Trigger vs Time</h3>
+          <h3 className="text-md font-medium mb-2">3. Manager Cycle (ms) - {triggerTypeName} vs Time</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
@@ -271,14 +346,14 @@ const SystemResourcesChart = ({
                   orientation="right"
                   domain={[0, 110]} 
                   ticks={[0, 20, 40, 60, 80, 100]}
-                  label={{ value: 'CPU Trigger (%)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle' } }}
+                  label={{ value: triggerTypeName, angle: 90, position: 'insideRight', style: { textAnchor: 'middle' } }}
                 />
                 {/* Add horizontal threshold line at 100% for CPU Trigger */}
                 <ReferenceLine y={100} stroke="#999999" strokeDasharray="3 3" label={{ value: '100%', position: 'left' }} yAxisId="right" />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Avg Manager Cycle'];
-                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, triggerTypeName];
                     return [value, name];
                   }}
                   labelFormatter={(value: number) => {
@@ -303,7 +378,7 @@ const SystemResourcesChart = ({
                   type="monotone" 
                   dataKey="triggered_by_cpu" 
                   stroke="#ff8800" 
-                  name="CPU Trigger %" 
+                  name={triggerTypeName} 
                   dot={false}
                   activeDot={true}
                   yAxisId="right"
