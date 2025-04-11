@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useARLTrafficData } from '../hooks/useARLTrafficData';
 import ARLTrafficUploader from './ARLTrafficUploader';
-import { ARLData } from '../types';
+import { ARLData, TimeRange } from '../types';
 import { parseARLRPMData } from '../utils/arlTrafficParser';
 
 const ARLTrafficAnalysis = () => {
@@ -16,6 +16,7 @@ const ARLTrafficAnalysis = () => {
   } = useARLTrafficData();
   
   const [selectedARLId, setSelectedARLId] = useState<number | null>(null);
+  const [showRange, setShowRange] = useState<TimeRange>('all');
   
   const formatTime = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleTimeString();
@@ -39,12 +40,37 @@ const ARLTrafficAnalysis = () => {
     }
   };
   
+  // Function to filter data based on time range
+  const getDataForRange = (range: TimeRange, data: { timestamp: number; requestCount: number; formattedTime: string }[]): typeof data => {
+    if (range === 'all') return data;
+    
+    const now = Math.floor(Date.now() / 1000);
+    const rangeMap: Record<TimeRange, number> = {
+      '5s': 5,
+      '10s': 10,
+      '15s': 15,
+      '30s': 30,
+      '1m': 60,
+      '10m': 600,
+      '30m': 1800,
+      '1h': 3600,
+      'all': 0
+    };
+    
+    const seconds = rangeMap[range];
+    if (seconds === 0) return data;
+    
+    const cutoffTime = now - seconds;
+    return data.filter(item => item.timestamp >= cutoffTime);
+  };
+
   const getRPMChartData = (arlId: number | null) => {
     if (arlId === null) return [];
     
     const rpmData = getARLData(arlId, 'rpm');
+    const filteredData = getDataForRange(showRange, rpmData);
     
-    return rpmData.map(item => ({
+    return filteredData.map(item => ({
       timestamp: item.timestamp,
       requestCount: item.requestCount,
       formattedTime: item.formattedTime
@@ -55,8 +81,9 @@ const ARLTrafficAnalysis = () => {
     if (arlId === null) return [];
     
     const rpsData = getARLData(arlId, 'rps');
+    const filteredData = getDataForRange(showRange, rpsData);
     
-    return rpsData.map(item => ({
+    return filteredData.map(item => ({
       timestamp: item.timestamp,
       requestCount: item.requestCount,
       formattedTime: item.formattedTime
@@ -108,7 +135,7 @@ const ARLTrafficAnalysis = () => {
             <div>
               <div className="mb-6">
                 <h3 className="text-lg font-medium mb-2">Select ARL ID for Analysis</h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {getAvailableARLIds().map(arlId => (
                     <button
                       key={arlId}
@@ -122,6 +149,25 @@ const ARLTrafficAnalysis = () => {
                       ARL {arlId}
                     </button>
                   ))}
+                </div>
+                
+                <div className="mb-2">
+                  <h3 className="text-lg font-medium mb-2">Select Time Range</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {['5s', '10s', '15s', '30s', '1m', '10m', '30m', '1h', 'all'].map((range) => (
+                      <button
+                        key={range}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                          showRange === range 
+                            ? 'bg-primary text-white' 
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        onClick={() => setShowRange(range as TimeRange)}
+                      >
+                        {range}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               
