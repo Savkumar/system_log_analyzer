@@ -135,89 +135,173 @@ const SystemResourcesChart = ({
           </div>
         </div>
         
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={displayData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="timestamp" 
-                type="number"
-                domain={['dataMin', 'dataMax']}
-                tickFormatter={formatTimestamp}
-                label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
-              />
-              <YAxis 
-                domain={[0, 110]} 
-                label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }}
-              />
-              <Tooltip 
-                formatter={(value: any, name: string) => {
-                  if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
-                  if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
-                  if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Avg Manager Cycle'];
-                  if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
-                  return [value, name];
-                }}
-                labelFormatter={(value: number) => {
-                  // Find if there's an overload event near this timestamp
-                  const nearbyEvent = overloadEvents.find(e => Math.abs(e.timestamp - value) < 0.5);
-                  
-                  if (nearbyEvent) {
-                    return `Time: ${formatTimestamp(value)} - Overload Event! CPU Trigger: ${nearbyEvent.triggered_by_cpu.toFixed(1)}%, ARL: ${nearbyEvent.arlid || 'Unknown'}`;
-                  }
-                  
-                  return `Time: ${formatTimestamp(value)}`;
-                }}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="cpu_all" 
-                stroke="#ff0000" 
-                strokeWidth={2}
-                name="CPU Usage" 
-                dot={false} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="flit" 
-                stroke="#0000ff" 
-                name="Flit Percentage" 
-                dot={false}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="avg_manager_cycle" 
-                stroke="#00aa00" 
-                name="Avg Manager Cycle" 
-                dot={false}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="triggered_by_cpu" 
-                stroke="#ff8800" 
-                name="CPU Trigger %" 
-                dot={false}
-                activeDot={true}
-              />
-              
-              {/* Add reference lines for overload events with ARL ID labels */}
-              {overloadEvents.map((event, index) => (
-                <ReferenceLine 
-                  key={index} 
-                  x={event.timestamp} 
-                  stroke="#ff8800" 
-                  strokeWidth={1.5}
-                  label={{ 
-                    value: `ARL ${event.arlid || 'Unknown'}`, 
-                    position: 'top', 
-                    fill: '#ff8800',
-                    fontSize: 10
+        {/* CPU Usage Chart */}
+        <div className="mb-6">
+          <h3 className="text-md font-medium mb-2">1. CPU Usage - CPU Trigger vs Time</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  type="number"
+                  domain={['dataMin', 'dataMax']}
+                  tickFormatter={formatTimestamp}
+                />
+                <YAxis 
+                  domain={[0, 110]} 
+                  label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+                />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
+                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                    return [value, name];
+                  }}
+                  labelFormatter={(value: number) => {
+                    const nearbyEvent = overloadEvents.find(e => Math.abs(e.timestamp - value) < 0.5);
+                    if (nearbyEvent) {
+                      return `Time: ${formatTimestamp(value)} - Overload Event! ARL: ${nearbyEvent.arlid || 'Unknown'}`;
+                    }
+                    return `Time: ${formatTimestamp(value)}`;
                   }}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="cpu_all" 
+                  stroke="#ff0000" 
+                  strokeWidth={2}
+                  name="CPU Usage" 
+                  dot={false} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="triggered_by_cpu" 
+                  stroke="#ff8800" 
+                  name="CPU Trigger %" 
+                  dot={false}
+                  activeDot={true}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Flit Percentage Chart */}
+        <div className="mb-6">
+          <h3 className="text-md font-medium mb-2">2. Flit Percentage - CPU Trigger vs Time</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  type="number"
+                  domain={['dataMin', 'dataMax']}
+                  tickFormatter={formatTimestamp}
+                />
+                <YAxis 
+                  domain={[0, 110]} 
+                  label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+                />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
+                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                    return [value, name];
+                  }}
+                  labelFormatter={(value: number) => {
+                    const nearbyEvent = overloadEvents.find(e => Math.abs(e.timestamp - value) < 0.5);
+                    if (nearbyEvent) {
+                      return `Time: ${formatTimestamp(value)} - Overload Event! ARL: ${nearbyEvent.arlid || 'Unknown'}`;
+                    }
+                    return `Time: ${formatTimestamp(value)}`;
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="flit" 
+                  stroke="#0000ff" 
+                  strokeWidth={2}
+                  name="Flit Percentage" 
+                  dot={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="triggered_by_cpu" 
+                  stroke="#ff8800" 
+                  name="CPU Trigger %" 
+                  dot={false}
+                  activeDot={true}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Manager Cycle Chart */}
+        <div>
+          <h3 className="text-md font-medium mb-2">3. Manager Cycle (ms) - CPU Trigger vs Time</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={displayData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  type="number"
+                  domain={['dataMin', 'dataMax']}
+                  tickFormatter={formatTimestamp}
+                  label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  domain={['auto', 'auto']} 
+                  label={{ value: 'Cycle Time (ms)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  domain={[0, 110]} 
+                  label={{ value: 'CPU Trigger (%)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle' } }}
+                />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Avg Manager Cycle'];
+                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                    return [value, name];
+                  }}
+                  labelFormatter={(value: number) => {
+                    const nearbyEvent = overloadEvents.find(e => Math.abs(e.timestamp - value) < 0.5);
+                    if (nearbyEvent) {
+                      return `Time: ${formatTimestamp(value)} - Overload Event! ARL: ${nearbyEvent.arlid || 'Unknown'}`;
+                    }
+                    return `Time: ${formatTimestamp(value)}`;
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="avg_manager_cycle" 
+                  stroke="#00aa00" 
+                  strokeWidth={2}
+                  name="Avg Manager Cycle" 
+                  dot={false}
+                  yAxisId="left"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="triggered_by_cpu" 
+                  stroke="#ff8800" 
+                  name="CPU Trigger %" 
+                  dot={false}
+                  activeDot={true}
+                  yAxisId="right"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </section>
