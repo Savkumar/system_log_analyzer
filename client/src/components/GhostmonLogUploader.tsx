@@ -131,7 +131,7 @@ const GhostmonLogUploader = ({ onFileUploaded }: GhostmonLogUploaderProps) => {
         <input 
           ref={fileInputRef}
           type="file" 
-          accept=".txt,.log" 
+          accept=".txt,.log,.gz" 
           className="hidden" 
           onChange={handleFileChange}
         />
@@ -148,7 +148,7 @@ const GhostmonLogUploader = ({ onFileUploaded }: GhostmonLogUploaderProps) => {
           ) : (
             <>
               <p className="text-sm text-gray-500 mb-4">Drag & drop your ghostmon log file here or click to browse</p>
-              <p className="text-xs text-gray-400 mb-4">The file needs to be in text format (uncompressed)</p>
+              <p className="text-xs text-gray-400 mb-4">Supports .txt, .log, and compressed .gz files</p>
               <button 
                 onClick={handleFileInputClick}
                 className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"

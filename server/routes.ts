@@ -12,6 +12,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   let activeLogFilePath = path.resolve(process.cwd(), 'attached_assets/paste-2.txt');
   let activeRPMLogFilePath = path.resolve(process.cwd(), 'attached_assets/Overall_RPM.txt');
   let activeRPSLogFilePath = path.resolve(process.cwd(), 'attached_assets/Overall_RPS.txt');
+  let activeGhostmonLogFilePath = path.resolve(process.cwd(), 'attached_assets/23.210.6.29_ghostmon.log.gz');
 
   // API endpoint to serve main log file content
   app.get('/api/logs', (req, res) => {
@@ -46,6 +47,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error reading RPS log file:', error);
       res.status(500).send('Error reading RPS log file');
+    }
+  });
+  
+  // API endpoint to serve Ghostmon log file content
+  app.get('/api/ghostmon', async (req, res) => {
+    try {
+      // Check if file is gzipped
+      if (activeGhostmonLogFilePath.endsWith('.gz')) {
+        // Read and decompress gzipped file
+        const gzippedData = fs.readFileSync(activeGhostmonLogFilePath);
+        const gunzip = promisify(zlib.gunzip);
+        const decompressedData = await gunzip(gzippedData);
+        const logContent = decompressedData.toString('utf8');
+        
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(logContent);
+      } else {
+        // Read regular file
+        const logContent = fs.readFileSync(activeGhostmonLogFilePath, 'utf8');
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(logContent);
+      }
+    } catch (error) {
+      console.error('Error reading Ghostmon log file:', error);
+      res.status(500).send('Error reading Ghostmon log file');
     }
   });
 
@@ -213,6 +239,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error in RPS file upload handler:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+  
+  // API endpoint to upload and process ghostmon log files
+  app.post('/api/upload/ghostmon', async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ message: 'No files were uploaded' });
+      }
+
+      const logFile = req.files.file as UploadedFile;
+      const tempFilePath = logFile.tempFilePath;
+      
+      try {
+        let logContent: string;
+        
+        // Process the file based on extension
+        if (logFile.name.endsWith('.gz')) {
+          const gzippedData = fs.readFileSync(tempFilePath);
+          const gunzip = promisify(zlib.gunzip);
+          const decompressedData = await gunzip(gzippedData);
+          logContent = decompressedData.toString('utf8');
+        } 
+        else if (logFile.name.endsWith('.log') || logFile.name.endsWith('.txt')) {
+          logContent = fs.readFileSync(tempFilePath, 'utf8');
+        }
+        else {
+          return res.status(400).json({ 
+            message: 'Unsupported file format. Please upload a .gz, .log, or .txt file' 
+          });
+        }
+        
+        // Save the decompressed file
+        const decompressedFilePath = path.join('/tmp', `ghostmon_log_${Date.now()}.txt`);
+        fs.writeFileSync(decompressedFilePath, logContent);
+        
+        // Update the active ghostmon log file path
+        activeGhostmonLogFilePath = decompressedFilePath;
+        
+        // Return the content directly for client-side processing
+        return res.status(200).send(logContent);
+      } catch (error) {
+        console.error('Error processing ghostmon log file:', error);
+        return res.status(500).json({ message: 'Error processing ghostmon log file' });
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    } catch (error) {
+      console.error('Error in ghostmon file upload handler:', error);
       return res.status(500).json({ message: 'Server error' });
     }
   });
