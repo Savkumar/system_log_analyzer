@@ -1,0 +1,468 @@
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+
+const ServerPerformanceAnalysis = () => {
+  const [data, setData] = useState([]);
+  const [overloadEvents, setOverloadEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState({ cpu: {}, flit: {}, cycle: {} });
+  const [uniqueArls, setUniqueArls] = useState([]);
+  
+  useEffect(() => {
+    // Process the log file on component mount
+    const parseLogFile = async () => {
+      try {
+        // Read the log file
+        const logContent = await window.fs.readFile('paste-2.txt', { encoding: 'utf8' });
+        const lines = logContent.split('\n');
+        const parsedData = [];
+        const events = [];
+        
+        lines.forEach(line => {
+          // Process Robust stats line
+          if (line.includes('Robust - stats:')) {
+            const timestampMatch = line.match(/^(\d+\.\d+)/);
+            const cpuMatch = line.match(/CPU: all (\d+)%/);
+            const flitMatch = line.match(/flit (\d+)%/);
+            const cycleMatch = line.match(/AVG manager cycle (\d+)us/);
+            
+            if (timestampMatch && cpuMatch) {
+              const timestamp = parseFloat(timestampMatch[1]);
+              const cpu = parseInt(cpuMatch[1]);
+              const flit = flitMatch ? parseInt(flitMatch[1]) : 0;
+              const cycle = cycleMatch ? parseInt(cycleMatch[1]) / 1000 : 0; // Convert to ms
+              
+              parsedData.push({
+                timestamp,
+                cpu_all: cpu,
+                flit,
+                avg_manager_cycle: cycle,
+                triggered_by_cpu: 0,
+                arlid: 0
+              });
+            }
+          }
+          
+          // Process OverloadManager processMainLoop line
+          if (line.includes('OverloadManager::processMainLoop()') && line.includes('triggered by cpu:')) {
+            const timestampMatch = line.match(/^(\d+\.\d+)/);
+            const cpuTriggerMatch = line.match(/triggered by cpu:([0-9.]+)/);
+            
+            if (timestampMatch && cpuTriggerMatch) {
+              const timestamp = parseFloat(timestampMatch[1]);
+              const cpuTriggerValue = parseFloat(cpuTriggerMatch[1]) * 100; // Scale to percentage
+              
+              // Look for the related addCandidateTarget line to get the ARLID
+              const arlidLine = lines.find(l => 
+                l.includes('addCandidateTarget()') && 
+                Math.abs(parseFloat(l.match(/^(\d+\.\d+)/)?.[1] || 0) - timestamp) < 1
+              );
+              
+              let arlid = null;
+              let rule = null;
+              
+              if (arlidLine) {
+                const arlidMatch = arlidLine.match(/arlid:(\d+)/);
+                const ruleMatch = arlidLine.match(/rule:'([^']+)'/);
+                
+                if (arlidMatch) arlid = parseInt(arlidMatch[1]);
+                if (ruleMatch) rule = ruleMatch[1];
+              }
+              
+              // Find closest regular data point to get system state
+              let closestDataPoint = null;
+              let minTimeDiff = Infinity;
+              
+              for (const dataPoint of parsedData) {
+                const timeDiff = Math.abs(dataPoint.timestamp - timestamp);
+                if (timeDiff < minTimeDiff) {
+                  minTimeDiff = timeDiff;
+                  closestDataPoint = dataPoint;
+                }
+              }
+              
+              // Create overload event with system state data
+              const event = {
+                timestamp,
+                triggered_by_cpu: cpuTriggerValue,
+                arlid,
+                rule,
+                cpu_all: closestDataPoint ? closestDataPoint.cpu_all : 0,
+                flit: closestDataPoint ? closestDataPoint.flit : 0,
+                avg_manager_cycle: closestDataPoint ? closestDataPoint.avg_manager_cycle : 0
+              };
+              
+              events.push(event);
+              
+              // Add a data point for the event
+              parsedData.push({
+                timestamp,
+                cpu_all: closestDataPoint ? closestDataPoint.cpu_all : 0,
+                flit: closestDataPoint ? closestDataPoint.flit : 0,
+                avg_manager_cycle: closestDataPoint ? closestDataPoint.avg_manager_cycle : 0,
+                triggered_by_cpu: cpuTriggerValue,
+                arlid: arlid || 0
+              });
+            }
+          }
+        });
+        
+        // Sort data by timestamp
+        parsedData.sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Calculate metrics
+        const cpuValues = parsedData.filter(d => d.cpu_all > 0).map(d => d.cpu_all);
+        const flitValues = parsedData.filter(d => d.flit > 0).map(d => d.flit);
+        const cycleValues = parsedData.filter(d => d.avg_manager_cycle > 0).map(d => d.avg_manager_cycle);
+        
+        const metrics = {
+          cpu: {
+            min: cpuValues.length ? Math.min(...cpuValues) : 0,
+            max: cpuValues.length ? Math.max(...cpuValues) : 0,
+            avg: cpuValues.length ? cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length : 0
+          },
+          flit: {
+            min: flitValues.length ? Math.min(...flitValues) : 0,
+            max: flitValues.length ? Math.max(...flitValues) : 0,
+            avg: flitValues.length ? flitValues.reduce((a, b) => a + b, 0) / flitValues.length : 0
+          },
+          cycle: {
+            min: cycleValues.length ? Math.min(...cycleValues) : 0,
+            max: cycleValues.length ? Math.max(...cycleValues) : 0,
+            avg: cycleValues.length ? cycleValues.reduce((a, b) => a + b, 0) / cycleValues.length : 0
+          }
+        };
+        
+        // Find unique ARLs affected by overload events
+        const uniqueArlSet = new Set(events.filter(e => e.arlid).map(e => e.arlid));
+        const uniqueArls = Array.from(uniqueArlSet);
+        
+        setData(parsedData);
+        setOverloadEvents(events);
+        setMetrics(metrics);
+        setUniqueArls(uniqueArls);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error parsing log file:', error);
+        setLoading(false);
+      }
+    };
+    
+    parseLogFile();
+  }, []);
+  
+  // Format timestamp for display
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    
+    const date = new Date(timestamp * 1000);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    
+    return `${hours}:${minutes}:${seconds}`;
+  };
+  
+  if (loading) {
+    return <div className="p-4">Loading server performance data...</div>;
+  }
+  
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Server Performance Analysis</h1>
+      
+      {/* Summary metrics */}
+      <div className="mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="bg-gray-100 p-3 rounded">
+            <h3 className="font-bold">CPU Usage</h3>
+            <p>Min: {metrics.cpu.min}%</p>
+            <p>Max: {metrics.cpu.max}%</p>
+            <p>Avg: {metrics.cpu.avg.toFixed(1)}%</p>
+          </div>
+          <div className="bg-gray-100 p-3 rounded">
+            <h3 className="font-bold">Flit Percentage</h3>
+            <p>Min: {metrics.flit.min}%</p>
+            <p>Max: {metrics.flit.max}%</p>
+            <p>Avg: {metrics.flit.avg.toFixed(1)}%</p>
+          </div>
+          <div className="bg-gray-100 p-3 rounded">
+            <h3 className="font-bold">Manager Cycle</h3>
+            <p>Min: {metrics.cycle.min.toFixed(2)} ms</p>
+            <p>Max: {metrics.cycle.max.toFixed(2)} ms</p>
+            <p>Avg: {metrics.cycle.avg.toFixed(2)} ms</p>
+          </div>
+        </div>
+        
+        {/* Overload events summary */}
+        <div className="bg-yellow-100 p-3 rounded mb-4">
+          <h3 className="font-bold">Overload Events: {overloadEvents.length}</h3>
+          <div className="mt-2 border-t border-yellow-200 pt-2">
+            <h4 className="font-medium">ARLs Affected:</h4>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {uniqueArls.map(arlid => (
+                <span key={arlid} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                  ARL ID: {arlid}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* System Resources Timeline Graph */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-2">System Resources Timeline</h2>
+        <div className="h-80 border border-gray-200 p-2 bg-white">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="timestamp" 
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={formatTimestamp}
+                label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+              />
+              <YAxis 
+                domain={[0, 110]} 
+                label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }}
+              />
+              <Tooltip 
+                formatter={(value, name) => {
+                  if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
+                  if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
+                  if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Avg Manager Cycle'];
+                  if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, 'CPU Trigger'];
+                  return [value, name];
+                }}
+                labelFormatter={(value) => {
+                  // Find if there's an overload event near this timestamp
+                  const nearbyEvent = overloadEvents.find(e => Math.abs(e.timestamp - value) < 0.5);
+                  
+                  if (nearbyEvent) {
+                    return `Time: ${formatTimestamp(value)} - Overload Event! CPU Trigger: ${nearbyEvent.triggered_by_cpu.toFixed(1)}%, ARL: ${nearbyEvent.arlid || 'Unknown'}`;
+                  }
+                  
+                  return `Time: ${formatTimestamp(value)}`;
+                }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="cpu_all" 
+                stroke="#ff0000" 
+                strokeWidth={2}
+                name="CPU Usage" 
+                dot={false} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="flit" 
+                stroke="#0000ff" 
+                name="Flit Percentage" 
+                dot={false}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="avg_manager_cycle" 
+                stroke="#00aa00" 
+                name="Avg Manager Cycle" 
+                dot={false}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="triggered_by_cpu" 
+                stroke="#ff8800" 
+                name="CPU Trigger %" 
+              />
+              
+              {/* Add reference lines for overload events with ARL ID labels */}
+              {overloadEvents.map((event, index) => (
+                <ReferenceLine 
+                  key={index} 
+                  x={event.timestamp} 
+                  stroke="#ff8800" 
+                  strokeWidth={1.5}
+                  label={{ 
+                    value: `ARL ${event.arlid || 'Unknown'}`, 
+                    position: 'top', 
+                    fill: '#ff8800',
+                    fontSize: 10
+                  }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      
+      {/* CPU and Flit visualization */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-2">CPU Usage vs Flit Percentage</h2>
+        <div className="h-64 border border-gray-200 p-2 bg-white">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="timestamp" 
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={formatTimestamp}
+                label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+              />
+              <YAxis 
+                domain={[0, 110]} 
+                label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }}
+              />
+              <Tooltip 
+                formatter={(value, name) => {
+                  if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
+                  if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
+                  return [value, name];
+                }}
+                labelFormatter={(value) => `Time: ${formatTimestamp(value)}`}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="cpu_all" 
+                stroke="#ff0000" 
+                strokeWidth={2}
+                name="CPU Usage" 
+                dot={false} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="flit" 
+                stroke="#0000ff" 
+                name="Flit Percentage" 
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      
+      {/* Manager Cycle visualization */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-2">Manager Cycle Time</h2>
+        <div className="h-64 border border-gray-200 p-2 bg-white">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data.filter(d => d.avg_manager_cycle > 0)}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="timestamp" 
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={formatTimestamp}
+                label={{ value: 'Time', position: 'insideBottom', offset: -5 }}
+              />
+              <YAxis
+                label={{ value: 'Time (ms)', angle: -90, position: 'insideLeft' }}
+              />
+              <Tooltip 
+                formatter={(value, name) => {
+                  if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Manager Cycle'];
+                  return [value, name];
+                }}
+                labelFormatter={(value) => `Time: ${formatTimestamp(value)}`}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="avg_manager_cycle" 
+                stroke="#00aa00" 
+                name="Manager Cycle" 
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      
+      {/* Overload Events Table */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-2">Overload Events</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border border-gray-200">
+            <thead>
+              <tr>
+                <th className="py-2 px-4 border-b">Time</th>
+                <th className="py-2 px-4 border-b">ARL ID</th>
+                <th className="py-2 px-4 border-b">CPU Usage</th>
+                <th className="py-2 px-4 border-b">Flit %</th>
+                <th className="py-2 px-4 border-b">CPU Trigger</th>
+                <th className="py-2 px-4 border-b">Rule</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overloadEvents.map((event, index) => (
+                <tr key={index} className="bg-yellow-50">
+                  <td className="py-2 px-4 border-b">{formatTimestamp(event.timestamp)}</td>
+                  <td className="py-2 px-4 border-b font-medium text-blue-600">{event.arlid || 0}</td>
+                  <td className="py-2 px-4 border-b">{event.cpu_all || 0}%</td>
+                  <td className="py-2 px-4 border-b">{event.flit || 0}%</td>
+                  <td className="py-2 px-4 border-b font-bold text-red-600">{event.triggered_by_cpu.toFixed(1)}%</td>
+                  <td className="py-2 px-4 border-b">{event.rule || 'N/A'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {/* System Resources Timeline Table */}
+      <div className="mb-6">
+        <h2 className="text-xl font-bold mb-2">System Resources Timeline Table</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white border border-gray-200">
+            <thead>
+              <tr>
+                <th className="py-2 px-4 border-b">Time</th>
+                <th className="py-2 px-4 border-b">CPU %</th>
+                <th className="py-2 px-4 border-b">Flit %</th>
+                <th className="py-2 px-4 border-b">Cycle (ms)</th>
+                <th className="py-2 px-4 border-b">CPU Trigger</th>
+                <th className="py-2 px-4 border-b">ARL ID</th>
+                <th className="py-2 px-4 border-b">Rule</th>
+                <th className="py-2 px-4 border-b">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data
+                .filter((_, index) => index % 10 === 0) // Sample every 10th point to keep the table manageable
+                .map((point, index) => {
+                  // Check if there's an overload event near this timestamp
+                  const nearbyEvent = overloadEvents.find(e => Math.abs(e.timestamp - point.timestamp) < 0.5);
+                  
+                  return (
+                    <tr key={index} className={nearbyEvent ? 'bg-yellow-50' : (index % 2 === 0 ? 'bg-gray-50' : 'bg-white')}>
+                      <td className="py-2 px-4 border-b">{formatTimestamp(point.timestamp)}</td>
+                      <td className="py-2 px-4 border-b">{point.cpu_all || 0}%</td>
+                      <td className="py-2 px-4 border-b">{point.flit || 0}%</td>
+                      <td className="py-2 px-4 border-b">{point.avg_manager_cycle ? point.avg_manager_cycle.toFixed(2) : '0.00'}</td>
+                      <td className={`py-2 px-4 border-b ${nearbyEvent ? 'font-bold text-red-600' : ''}`}>
+                        {nearbyEvent ? `${nearbyEvent.triggered_by_cpu.toFixed(1)}%` : '0%'}
+                      </td>
+                      <td className={`py-2 px-4 border-b ${nearbyEvent && nearbyEvent.arlid ? 'font-medium text-blue-600' : ''}`}>
+                        {nearbyEvent && nearbyEvent.arlid ? nearbyEvent.arlid : 0}
+                      </td>
+                      <td className="py-2 px-4 border-b">
+                        {nearbyEvent && nearbyEvent.rule ? nearbyEvent.rule : 'N/A'}
+                      </td>
+                      <td className={`py-2 px-4 border-b ${nearbyEvent ? 'font-bold text-red-600' : 'text-green-600'}`}>
+                        {nearbyEvent ? 'OVERLOAD' : 'Normal'}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ServerPerformanceAnalysis;
