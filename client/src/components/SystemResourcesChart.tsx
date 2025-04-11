@@ -3,6 +3,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { LogData, OverloadEvent, TimeRange } from '../types';
 import { formatTimestamp } from '../utils/logParser';
 
+// Create an extended data interface for our charts
+interface ExtendedLogData extends LogData {
+  trigger_value: number; // Dynamic trigger field based on detected type
+}
+
 interface SystemResourcesChartProps {
   data: LogData[];
   overloadEvents: OverloadEvent[];
@@ -119,7 +124,14 @@ const SystemResourcesChart = ({
   };
   
   // Filter data for the selected time range
-  const displayData = getDataForRange(showRange, data);
+  const displayData = getDataForRange(showRange, data).map(item => {
+    // Create a modified data object with dynamic trigger data property based on detected type
+    return {
+      ...item,
+      // Keep original data but also add a dynamic trigger property for charts
+      trigger_dynamic: item.triggered_by_cpu // This keeps all the original data but adds a new key
+    };
+  });
 
   return (
     <section className="mb-8">
