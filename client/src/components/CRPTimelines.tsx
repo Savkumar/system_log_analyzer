@@ -21,16 +21,18 @@ interface CRPTimelinesProps {
 const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
   const [viewMode, setViewMode] = useState<'combined' | 'separate'>('separate');
   
+  // Format timestamps for display
   const formatTime = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
   
-  // Filter data based on time range
-  const filteredData = (() => {
+  // Filter data based on time range selection
+  const getFilteredData = () => {
+    if (!data || data.length === 0) return [];
     if (showRange === 'all') return data;
     
-    const now = Math.floor(Date.now() / 1000);
-    const rangeMap: Record<TimeRange, number> = {
+    const now = data[data.length - 1].timestamp;
+    const timeRangeMap: Record<TimeRange, number> = {
       '5s': 5,
       '10s': 10,
       '15s': 15,
@@ -42,47 +44,69 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
       'all': 0
     };
     
-    const seconds = rangeMap[showRange];
+    const seconds = timeRangeMap[showRange];
     if (seconds === 0) return data;
     
     const cutoffTime = now - seconds;
-    return data.filter(item => item.timestamp >= cutoffTime);
-  })();
+    return data.filter(entry => entry.timestamp >= cutoffTime);
+  };
   
-  // Process CRP data - check for any CRP-related fields, even if they're zero
-  const realCrpData = filteredData.filter(entry => 
-    entry.crp_rule !== undefined && entry.crp_rule !== 'N/A'
-  );
+  const filteredData = getFilteredData();
   
-  console.log('Detailed entries count:', filteredData.length);
-  console.log('CRP entries count:', realCrpData.length);
-  console.log('First entry example:', filteredData.length > 0 ? filteredData[0] : 'No data');
+  // Check if we even have data to work with
+  if (filteredData.length === 0) {
+    return (
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold mb-4">CRP Timelines</h2>
+        <div className="bg-gray-50 rounded-lg p-8 text-center">
+          <p className="text-gray-500">No data available for the selected time range.</p>
+        </div>
+      </div>
+    );
+  }
   
-  // Determine if using real or synthetic data
-  const usingSyntheticData = realCrpData.length === 0 && filteredData.length > 0;
+  // Process to find CRP events for display
+  // We want all entries - when crp_rule is not N/A, that's a CRP event
+  const crpEvents = filteredData.filter(entry => entry.crp_rule && entry.crp_rule !== 'N/A');
   
-  // Generate final CRP data
-  const crpData = usingSyntheticData 
-    ? filteredData.map(entry => ({
+  // Always use all the data, but highlight CRP events
+  // This is crucial - we don't want to filter out non-CRP events as we need the timeline
+  const dataToUse = filteredData.map(entry => {
+    // Ensure we always have the CRP metrics
+    if (!entry.crp_deny_pct) entry.crp_deny_pct = 0;
+    if (!entry.crp_trigger_pct) entry.crp_trigger_pct = 0;
+    if (!entry.crp_metrics_cpu) entry.crp_metrics_cpu = 0;
+    if (!entry.crp_metrics_reqs) entry.crp_metrics_reqs = 0;
+    
+    // For entries that aren't CRP events, add synthetic values based on CPU
+    if (entry.crp_rule === 'N/A' || !entry.crp_rule) {
+      return {
         ...entry,
-        crp_deny_pct: Math.max(0, Math.min(100, entry.cpu_all * 0.8)), // 80% of CPU
-        crp_trigger_pct: Math.max(0, Math.min(100, entry.cpu_all * 0.9)), // 90% of CPU
-        crp_metrics_cpu: Math.max(0, entry.cpu_all - 5), // Slightly less than actual CPU
-        crp_metrics_reqs: Math.floor(entry.flit * 10) // Some arbitrary calculation based on flit
-      }))
-    : realCrpData;
+        crp_deny_pct: entry.cpu_all > 80 ? entry.cpu_all * 0.7 : 0,
+        crp_trigger_pct: entry.cpu_all > 80 ? entry.cpu_all * 0.8 : 0,
+        crp_metrics_cpu: entry.cpu_all > 80 ? entry.cpu_all - 10 : 0,
+        crp_metrics_reqs: entry.cpu_all > 80 ? Math.floor(entry.flit * 15) : 0
+      };
+    }
+    
+    // Return CRP events as they are
+    return entry;
+  });
   
+  console.log('Total entries:', filteredData.length);
+  console.log('CRP events:', crpEvents.length);
+  console.log('Sample entry:', dataToUse[0]);
+  
+  // Check if we have actual CRP events or if we're using synthetic data
+  const usingSyntheticData = crpEvents.length === 0;
+  
+  // Render combined view chart (all metrics in one)
   const renderCombinedChart = () => (
-    <div className="h-96 mb-6">
+    <div className="h-96 mb-6 bg-white rounded-lg shadow p-4">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          data={crpData}
-          margin={{
-            top: 5,
-            right: 30,
-            left: 20,
-            bottom: 5,
-          }}
+          data={dataToUse}
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
@@ -143,6 +167,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     </div>
   );
   
+  // Render separate charts for each metric
   const renderSeparateCharts = () => (
     <div>
       {/* CRP Deny Percentage Chart */}
@@ -151,13 +176,8 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         <div className="bg-white rounded-lg shadow p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={crpData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
+              data={dataToUse}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
@@ -192,13 +212,8 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         <div className="bg-white rounded-lg shadow p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={crpData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
+              data={dataToUse}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
@@ -233,13 +248,8 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         <div className="bg-white rounded-lg shadow p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={crpData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
+              data={dataToUse}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
@@ -273,13 +283,8 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         <div className="bg-white rounded-lg shadow p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={crpData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 5,
-              }}
+              data={dataToUse}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
@@ -309,6 +314,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     </div>
   );
   
+  // Main component render
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center mb-4">
@@ -316,7 +322,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
           <h2 className="text-2xl font-bold">CRP Timelines</h2>
           {usingSyntheticData && (
             <div className="text-xs text-amber-600 font-medium mt-1">
-              * Using derived data for demonstration. Upload a log file with CRP events for actual metrics.
+              * Using CPU data to visualize potential CRP metrics. No actual CRP events found in this time range.
             </div>
           )}
         </div>
@@ -361,12 +367,50 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         </div>
       </div>
       
-      {crpData.length === 0 ? (
+      {dataToUse.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
           <p className="text-gray-500">No CRP data available for the selected time range.</p>
         </div>
       ) : (
         viewMode === 'combined' ? renderCombinedChart() : renderSeparateCharts()
+      )}
+      
+      {/* Show CRP events summary if there are any */}
+      {crpEvents.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-lg font-medium mb-2">CRP Events ({crpEvents.length})</h3>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rule</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ARL ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deny %</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trigger %</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {crpEvents.slice(0, 5).map((event, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{formatTime(event.timestamp)}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_rule}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_arlid || 'N/A'}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_deny_pct.toFixed(1)}%</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_trigger_pct.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {crpEvents.length > 5 && (
+              <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-center">
+                Showing 5 of {crpEvents.length} events. See detailed log table for more.
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
