@@ -178,7 +178,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
   
   // Render combined view chart (all metrics in one)
   const renderCombinedChart = () => (
-    <div className="h-96 mb-6 bg-white rounded-lg shadow p-4">
+    <div className="h-[500px] mb-6 bg-white rounded-lg shadow p-4">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={dataToUse}
@@ -190,50 +190,73 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
             tickFormatter={formatTime}
             tick={{ fontSize: 12 }} 
           />
-          <YAxis />
+          <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
+          <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
           <Tooltip 
             formatter={(value: any, name: string) => {
               return [
-                `${Number(value).toLocaleString()}${name.includes('Pct') ? '%' : ''}`, 
-                name.replace('crp_', '').replace('_', ' ').replace('Pct', ' %')
+                `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'CPU %' || name === 'FLIT %' ? '%' : name.includes('Cycle') ? 'ms' : ''}`, 
+                name
               ];
             }}
             labelFormatter={formatTime}
           />
           <Legend />
-          <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
+          <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
+          
+          {/* CPU Usage */}
           <Line 
+            yAxisId="right"
+            type="monotone" 
+            dataKey="cpu_all" 
+            name="CPU %" 
+            stroke="#d95649" 
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 6 }}
+          />
+          
+          {/* FLIT Percentage */}
+          <Line 
+            yAxisId="right"
+            type="monotone" 
+            dataKey="flit" 
+            name="FLIT %" 
+            stroke="#3644d9" 
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 6 }}
+          />
+          
+          {/* Manager Cycle */}
+          <Line 
+            yAxisId="left"
+            type="monotone" 
+            dataKey="avg_mgr_cycle" 
+            name="Manager Cycle (ms)" 
+            stroke="#45aa44" 
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 6 }}
+          />
+          
+          {/* CRP Metrics */}
+          <Line 
+            yAxisId="right"
             type="monotone" 
             dataKey="crp_deny_pct" 
-            name="Deny %" 
+            name="CRP Deny %" 
             stroke="#8884d8" 
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 6 }}
           />
           <Line 
+            yAxisId="right"
             type="monotone" 
             dataKey="crp_trigger_pct" 
-            name="Trigger %" 
-            stroke="#82ca9d" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="crp_metrics_cpu" 
-            name="CPU" 
-            stroke="#ffc658" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="crp_metrics_reqs" 
-            name="Requests" 
-            stroke="#ff8042" 
+            name="CRP Trigger %" 
+            stroke="#e6a144" 
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 6 }}
@@ -249,26 +272,14 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     console.log("Sample data point:", dataToUse[0]);
     console.log("Primary trigger type:", metricInfo.primaryTriggerType, metricInfo.metricName);
     
-    // Create chart titles based on the primary trigger type
-    let metricChartTitle = "CPU Usage";
-    let metricDataKey = "crp_metrics_cpu";
-    
-    if (metricInfo.primaryTriggerType === 'flits') {
-      metricChartTitle = "FLIT Percentage";
-      metricDataKey = "flit";
-    } else if (metricInfo.primaryTriggerType === 'mem') {
-      metricChartTitle = "Memory Usage (KB)";
-      metricDataKey = "crp_metrics_mem";
-    } else if (metricInfo.primaryTriggerType === 'reqs') {
-      metricChartTitle = "Request Rate";
-      metricDataKey = "crp_metrics_reqs";
-    }
+    // Select which metrics to show based on detected trigger type
+    const triggerDataKey = "crp_trigger_pct";
     
     return (
       <div>
-        {/* CRP Deny Percentage Chart */}
+        {/* 1. CPU Usage - Trigger % Chart (Always show as first chart) */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">CRP Deny Percentage vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">1. CPU Usage - CRP Trigger % vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -283,7 +294,221 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 />
                 <YAxis domain={[0, 'dataMax']} />
                 <Tooltip 
-                  formatter={(value: any) => [`${Number(value).toLocaleString()}%`, 'Deny Percentage']}
+                  formatter={(value: any, name: string) => {
+                    return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`, 
+                      name.includes('cpu_all') ? 'CPU Usage' : 'CRP Trigger %'
+                    ];
+                  }}
+                  labelFormatter={formatTime}
+                />
+                <Legend />
+                <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
+                <Line 
+                  type="monotone" 
+                  dataKey="cpu_all" 
+                  name="CPU Usage" 
+                  stroke="#d95649" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey={triggerDataKey} 
+                  name="CRP Trigger %" 
+                  stroke="#e6a144" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* 2. FLIT Percentage - Trigger % Chart */}
+        <div className="h-64 mb-6">
+          <h3 className="text-lg font-medium mb-2">2. FLIT Percentage - CRP Trigger % vs Time</h3>
+          <div className="bg-white rounded-lg shadow p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dataToUse}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTime}
+                  tick={{ fontSize: 12 }} 
+                />
+                <YAxis domain={[0, 'dataMax']} />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'FLIT %' ? '%' : ''}`, 
+                      name === 'flit' ? 'FLIT %' : 'CRP Trigger %'
+                    ];
+                  }}
+                  labelFormatter={formatTime}
+                />
+                <Legend />
+                <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
+                <Line 
+                  type="monotone" 
+                  dataKey="flit" 
+                  name="FLIT %" 
+                  stroke="#3644d9" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey={triggerDataKey} 
+                  name="CRP Trigger %" 
+                  stroke="#e6a144" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* 3. Manager Cycle - Trigger % Chart */}
+        <div className="h-64 mb-6">
+          <h3 className="text-lg font-medium mb-2">3. Manager Cycle (ms) - CRP Trigger % vs Time</h3>
+          <div className="bg-white rounded-lg shadow p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dataToUse}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTime}
+                  tick={{ fontSize: 12 }} 
+                />
+                <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
+                <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    return [
+                      `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : name.includes('Cycle') ? 'ms' : ''}`, 
+                      name.includes('avg_mgr_cycle') ? 'Manager Cycle (ms)' : 'CRP Trigger %'
+                    ];
+                  }}
+                  labelFormatter={formatTime}
+                />
+                <Legend />
+                <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="avg_mgr_cycle" 
+                  name="Manager Cycle (ms)" 
+                  stroke="#45aa44" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey={triggerDataKey} 
+                  name="CRP Trigger %" 
+                  stroke="#e6a144" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* 4. Requests - Trigger % Chart */}
+        <div className="h-64 mb-6">
+          <h3 className="text-lg font-medium mb-2">4. HTTP/HTTPS Accepts - CRP Trigger % vs Time</h3>
+          <div className="bg-white rounded-lg shadow p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dataToUse}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTime}
+                  tick={{ fontSize: 12 }} 
+                />
+                <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
+                <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+                <Tooltip 
+                  formatter={(value: any, name: string) => {
+                    return [
+                      `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`, 
+                      name
+                    ];
+                  }}
+                  labelFormatter={formatTime}
+                />
+                <Legend />
+                <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="http_accepts" 
+                  name="HTTP" 
+                  stroke="#ff8042" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="https_accepts" 
+                  name="HTTPS" 
+                  stroke="#d13b3b" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey={triggerDataKey} 
+                  name="CRP Trigger %" 
+                  stroke="#e6a144" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* 5. Deny Percentage vs Trigger Percentage */}
+        <div className="h-64 mb-6">
+          <h3 className="text-lg font-medium mb-2">5. CRP Deny % - CRP Trigger % vs Time</h3>
+          <div className="bg-white rounded-lg shadow p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dataToUse}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={formatTime}
+                  tick={{ fontSize: 12 }} 
+                />
+                <YAxis domain={[0, 'dataMax']} />
+                <Tooltip 
+                  formatter={(value: any, name: string) => [`${Number(value).toLocaleString()}%`, name]}
                   labelFormatter={formatTime}
                 />
                 <Legend />
@@ -297,117 +522,11 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                   dot={false}
                   activeDot={{ r: 6 }}
                 />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        
-        {/* CRP Trigger Percentage Chart */}
-        <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">CRP Trigger Percentage vs Time</h3>
-          <div className="bg-white rounded-lg shadow p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={dataToUse}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
-                />
-                <YAxis domain={[0, 'dataMax']} />
-                <Tooltip 
-                  formatter={(value: any) => [`${Number(value).toLocaleString()}%`, 'Trigger Percentage']}
-                  labelFormatter={formatTime}
-                />
-                <Legend />
-                <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
                 <Line 
                   type="monotone" 
                   dataKey="crp_trigger_pct" 
                   name="Trigger %" 
-                  stroke="#82ca9d" 
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        
-        {/* Primary Trigger Metric Chart (CPU/FLIT/Memory/Requests) */}
-        <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">{metricChartTitle} vs Time</h3>
-          <div className="bg-white rounded-lg shadow p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={dataToUse}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
-                />
-                <YAxis domain={[0, 'dataMax']} />
-                <Tooltip 
-                  formatter={(value: any) => [Number(value).toLocaleString(), metricChartTitle]}
-                  labelFormatter={formatTime}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey={metricDataKey} 
-                  name={metricInfo.metricName} 
-                  stroke="#ffc658" 
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        
-        {/* CRP Requests Chart */}
-        <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">HTTP/HTTPS Accepts vs Time</h3>
-          <div className="bg-white rounded-lg shadow p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={dataToUse}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
-                />
-                <YAxis domain={[0, 'dataMax']} />
-                <Tooltip 
-                  formatter={(value: any) => [Number(value).toLocaleString(), 'Requests']}
-                  labelFormatter={formatTime}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="http_accepts" 
-                  name="HTTP" 
-                  stroke="#ff8042" 
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 6 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="https_accepts" 
-                  name="HTTPS" 
-                  stroke="#d13b3b" 
+                  stroke="#e6a144" 
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 6 }}
