@@ -70,6 +70,28 @@ export interface TrafficMetrics {
   timespan: string;
 }
 
+export interface GhostmonLogEntry {
+  timestamp: number;
+  formattedTime: string;
+  dnsp_key: 'S' | 'W' | string; // S or W typically
+  flyteload: number;
+  hits: number;
+  suspendflag: number;
+  suspendlevel: number;
+  ocp?: number; // Optional fields
+  osp?: number;
+  extra?: string; // Any additional data
+}
+
+export interface GhostmonMetrics {
+  maxFlyteload: number;
+  avgFlyteload: number;
+  maxHits: number;
+  avgHits: number;
+  maxSuspendlevel: number;
+  timespan: string;
+}
+
 export type TimeRange = '5s' | '10s' | '15s' | '30s' | '1m' | '10m' | '30m' | '1h' | 'all';
 
 export interface RPMData {
