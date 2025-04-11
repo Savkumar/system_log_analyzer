@@ -2,7 +2,8 @@ import { GhostmonLogEntry, GhostmonMetrics } from '../types';
 
 /**
  * Parse ghostmon log data
- * Expected format: timestamp dnsp_key=X flyteload=N hits=N suspendflag=N suspendlevel=N [ocp=N] [osp=N]
+ * Expected format: [DATE TIME LEVEL FILE:LINE METHOD[KEY] dnsp_key=X flyteload=N hits=N suspendflag=N suspendlevel=N
+ * Example: [04-10 20:14:24.419 I    write_dnsp.cpp:2453 read_shm[S] dnsp_key=Sflyteload=24953936hits=704.324516suspendflag=0suspendlevel=0
  */
 export const parseGhostmonLog = (logContent: string): GhostmonLogEntry[] => {
   const lines = logContent.split('\n');
@@ -15,21 +16,29 @@ export const parseGhostmonLog = (logContent: string): GhostmonLogEntry[] => {
     }
     
     try {
-      // Extract timestamp and all key-value pairs
-      const parts = line.trim().split(/\s+/);
-      
-      if (parts.length < 6) {
-        continue; // Skip incomplete lines
+      // Check if it's a valid log entry (starts with a timestamp in brackets)
+      if (!line.startsWith('[')) {
+        continue;
       }
       
-      const timestamp = parseInt(parts[0], 10);
-      
-      if (isNaN(timestamp)) {
-        continue; // Skip invalid timestamps
+      // Extract the date and time from the log entry
+      const dateTimeMatch = line.match(/\[([\d-]+)\s+([\d:.]+)/);
+      if (!dateTimeMatch) {
+        continue;
       }
       
-      // Format the timestamp for display
-      const date = new Date(timestamp * 1000);
+      const dateStr = dateTimeMatch[1]; // e.g., "04-10"
+      const timeStr = dateTimeMatch[2]; // e.g., "20:14:24.419"
+      
+      // Create a timestamp
+      const now = new Date();
+      const year = now.getFullYear();
+      const [month, day] = dateStr.split('-').map(Number);
+      const [hours, minutes, secondsWithMs] = timeStr.split(':').map(val => parseFloat(val));
+      const seconds = Math.floor(secondsWithMs);
+      
+      const date = new Date(year, month - 1, day, hours, minutes, seconds);
+      const timestamp = Math.floor(date.getTime() / 1000);
       const formattedTime = date.toLocaleString();
       
       // Initialize entry with defaults
@@ -43,48 +52,44 @@ export const parseGhostmonLog = (logContent: string): GhostmonLogEntry[] => {
         suspendlevel: 0
       };
       
-      // Parse all key-value pairs
-      for (let i = 1; i < parts.length; i++) {
-        const kvPair = parts[i];
-        const [key, value] = kvPair.split('=');
+      // Extract all key-value pairs from the log line
+      if (line.includes('dnsp_key=')) {
+        const keyValuePart = line.substring(line.indexOf('dnsp_key='));
         
-        if (!key || !value) continue;
-        
-        switch (key) {
-          case 'dnsp_key':
-            entry.dnsp_key = value;
-            break;
-          case 'flyteload':
-            entry.flyteload = parseFloat(value);
-            break;
-          case 'hits':
-            entry.hits = parseInt(value, 10);
-            break;
-          case 'suspendflag':
-            entry.suspendflag = parseInt(value, 10);
-            break;
-          case 'suspendlevel':
-            entry.suspendlevel = parseInt(value, 10);
-            break;
-          case 'ocp':
-            entry.ocp = parseFloat(value);
-            break;
-          case 'osp':
-            entry.osp = parseFloat(value);
-            break;
-          default:
-            // Store any additional fields
-            if (!entry.extra) {
-              entry.extra = '';
-            }
-            entry.extra += `${key}=${value} `;
+        // Find the dnsp_key value (S or W)
+        const dnspMatch = keyValuePart.match(/dnsp_key=([SW])/);
+        if (dnspMatch) {
+          entry.dnsp_key = dnspMatch[1];
         }
+        
+        // Extract flyteload
+        const flyteloadMatch = keyValuePart.match(/flyteload=(\d+)/);
+        if (flyteloadMatch) {
+          entry.flyteload = parseInt(flyteloadMatch[1], 10);
+        }
+        
+        // Extract hits
+        const hitsMatch = keyValuePart.match(/hits=([\d.]+)/);
+        if (hitsMatch) {
+          entry.hits = parseFloat(hitsMatch[1]);
+        }
+        
+        // Extract suspendflag
+        const suspendFlagMatch = keyValuePart.match(/suspendflag=(\d+)/);
+        if (suspendFlagMatch) {
+          entry.suspendflag = parseInt(suspendFlagMatch[1], 10);
+        }
+        
+        // Extract suspendlevel
+        const suspendLevelMatch = keyValuePart.match(/suspendlevel=(\d+)/);
+        if (suspendLevelMatch) {
+          entry.suspendlevel = parseInt(suspendLevelMatch[1], 10);
+        }
+        
+        entries.push(entry);
       }
-      
-      entries.push(entry);
     } catch (error) {
-      console.error(`Error parsing line: ${line}`, error);
-      // Continue with next line
+      console.error('Error parsing line:', line, error);
     }
   }
   
@@ -95,9 +100,9 @@ export const parseGhostmonLog = (logContent: string): GhostmonLogEntry[] => {
 /**
  * Filter ghostmon log entries by dnsp_key
  */
-export const filterByDnspKey = (entries: GhostmonLogEntry[], key: 'S' | 'W' | string | null): GhostmonLogEntry[] => {
-  if (!key) {
-    return entries; // Return all entries if no filter
+export const filterByDnspKey = (entries: GhostmonLogEntry[], key: 'S' | 'W' | 'all'): GhostmonLogEntry[] => {
+  if (key === 'all') {
+    return entries;
   }
   
   return entries.filter(entry => entry.dnsp_key === key);
