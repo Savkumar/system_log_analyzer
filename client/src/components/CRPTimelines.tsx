@@ -49,13 +49,14 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     return data.filter(item => item.timestamp >= cutoffTime);
   })();
   
-  // Process CRP data
+  // Process CRP data - check for any CRP-related fields, even if they're zero
   const realCrpData = filteredData.filter(entry => 
-    entry.crp_deny_pct > 0 || 
-    entry.crp_trigger_pct > 0 ||
-    entry.crp_metrics_cpu > 0 ||
-    entry.crp_metrics_reqs > 0
+    entry.crp_rule !== undefined && entry.crp_rule !== 'N/A'
   );
+  
+  console.log('Detailed entries count:', filteredData.length);
+  console.log('CRP entries count:', realCrpData.length);
+  console.log('First entry example:', filteredData.length > 0 ? filteredData[0] : 'No data');
   
   // Determine if using real or synthetic data
   const usingSyntheticData = realCrpData.length === 0 && filteredData.length > 0;
