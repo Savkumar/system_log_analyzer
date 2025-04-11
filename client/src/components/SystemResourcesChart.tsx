@@ -245,7 +245,7 @@ const SystemResourcesChart = ({
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
-                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, triggerTypeName];
+                    if (name === 'trigger_dynamic') return [`${value.toFixed(1)}%`, triggerTypeName];
                     return [value, name];
                   }}
                   labelFormatter={(value: number) => {
@@ -267,7 +267,7 @@ const SystemResourcesChart = ({
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="triggered_by_cpu" 
+                  dataKey="trigger_dynamic" 
                   stroke="#ff8800" 
                   name={triggerTypeName} 
                   dot={false}
@@ -301,7 +301,7 @@ const SystemResourcesChart = ({
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
-                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, triggerTypeName];
+                    if (name === 'trigger_dynamic') return [`${value.toFixed(1)}%`, triggerTypeName];
                     return [value, name];
                   }}
                   labelFormatter={(value: number) => {
@@ -323,7 +323,7 @@ const SystemResourcesChart = ({
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="triggered_by_cpu" 
+                  dataKey="trigger_dynamic" 
                   stroke="#ff8800" 
                   name={triggerTypeName} 
                   dot={false}
@@ -365,7 +365,7 @@ const SystemResourcesChart = ({
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Avg Manager Cycle'];
-                    if (name === 'triggered_by_cpu') return [`${value.toFixed(1)}%`, triggerTypeName];
+                    if (name === 'trigger_dynamic') return [`${value.toFixed(1)}%`, triggerTypeName];
                     return [value, name];
                   }}
                   labelFormatter={(value: number) => {
@@ -388,7 +388,7 @@ const SystemResourcesChart = ({
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="triggered_by_cpu" 
+                  dataKey="trigger_dynamic" 
                   stroke="#ff8800" 
                   name={triggerTypeName} 
                   dot={false}
