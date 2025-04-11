@@ -1,13 +1,13 @@
 import { Dispatch, SetStateAction } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { LogData, OverloadEvent } from '../types';
+import { LogData, OverloadEvent, TimeRange } from '../types';
 import { formatTimestamp } from '../utils/logParser';
 
 interface SystemResourcesChartProps {
   data: LogData[];
   overloadEvents: OverloadEvent[];
-  showRange: 'all' | '1h';
-  setShowRange: Dispatch<SetStateAction<'all' | '1h'>>;
+  showRange: TimeRange;
+  setShowRange: Dispatch<SetStateAction<TimeRange>>;
 }
 
 const SystemResourcesChart = ({ 
@@ -16,10 +16,35 @@ const SystemResourcesChart = ({
   showRange, 
   setShowRange 
 }: SystemResourcesChartProps) => {
-  // Filter data for 1h view if selected
-  const displayData = showRange === '1h' && data.length > 0
-    ? data.slice(-Math.min(60, data.length)) // Last 60 data points or less
-    : data;
+  // Filter data according to the selected time range
+  const getDataForRange = (range: TimeRange, data: LogData[]) => {
+    if (data.length === 0) return data;
+    
+    switch (range) {
+      case '5s':
+        return data.slice(-Math.min(5, data.length));
+      case '10s':
+        return data.slice(-Math.min(10, data.length));
+      case '15s':
+        return data.slice(-Math.min(15, data.length));
+      case '30s':
+        return data.slice(-Math.min(30, data.length));
+      case '1m':
+        return data.slice(-Math.min(60, data.length));
+      case '10m':
+        return data.slice(-Math.min(600, data.length));
+      case '30m':
+        return data.slice(-Math.min(1800, data.length));
+      case '1h':
+        return data.slice(-Math.min(3600, data.length));
+      case 'all':
+      default:
+        return data;
+    }
+  };
+  
+  // Filter data for the selected time range
+  const displayData = getDataForRange(showRange, data);
 
   return (
     <section className="mb-8">
@@ -47,7 +72,54 @@ const SystemResourcesChart = ({
               <span className="text-sm">CPU Trigger</span>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Short time ranges */}
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '5s' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('5s')}
+            >
+              5s
+            </button>
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '10s' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('10s')}
+            >
+              10s
+            </button>
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '15s' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('15s')}
+            >
+              15s
+            </button>
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '30s' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('30s')}
+            >
+              30s
+            </button>
+            
+            {/* Medium time ranges */}
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '1m' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('1m')}
+            >
+              1m
+            </button>
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '10m' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('10m')}
+            >
+              10m
+            </button>
+            <button 
+              className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '30m' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
+              onClick={() => setShowRange('30m')}
+            >
+              30m
+            </button>
+            
+            {/* Long time ranges */}
             <button 
               className={`text-sm px-2 py-1 border border-gray-300 rounded ${showRange === '1h' ? 'bg-primary text-white' : 'hover:bg-gray-100'}`}
               onClick={() => setShowRange('1h')}
@@ -125,7 +197,8 @@ const SystemResourcesChart = ({
                 dataKey="triggered_by_cpu" 
                 stroke="#ff8800" 
                 name="CPU Trigger %" 
-                dot={(dataPoint) => dataPoint.triggered_by_cpu > 0}
+                dot={false}
+                activeDot={true}
               />
               
               {/* Add reference lines for overload events with ARL ID labels */}

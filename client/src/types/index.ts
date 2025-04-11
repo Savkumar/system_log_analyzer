@@ -48,3 +48,5 @@ export interface Metrics {
   flit: MetricStat;
   cycle: MetricStat;
 }
+
+export type TimeRange = '5s' | '10s' | '15s' | '30s' | '1m' | '10m' | '30m' | '1h' | 'all';
