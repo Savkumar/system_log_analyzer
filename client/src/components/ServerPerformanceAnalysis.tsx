@@ -4,11 +4,13 @@ import OverloadSummary from './OverloadSummary';
 import SystemResourcesChart from './SystemResourcesChart';
 import CPUFlitChart from './CPUFlitChart';
 import OverloadEventsTable from './OverloadEventsTable';
+import DetailedLogTable from './DetailedLogTable';
 import useLogData from '../hooks/useLogData';
 
 const ServerPerformanceAnalysis = () => {
-  const { data, overloadEvents, metrics, uniqueArls, loading, refreshData } = useLogData();
+  const { data, overloadEvents, detailedEntries, metrics, uniqueArls, loading, refreshData } = useLogData();
   const [showRange, setShowRange] = useState<'all' | '1h'>('all');
+  const [showDetailedTable, setShowDetailedTable] = useState<boolean>(false);
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -24,6 +26,17 @@ const ServerPerformanceAnalysis = () => {
           >
             <i className="ri-refresh-line"></i>
             <span>Refresh</span>
+          </button>
+          <button 
+            onClick={() => setShowDetailedTable(!showDetailedTable)}
+            className={`flex items-center gap-1 px-4 py-2 border rounded transition-colors ${
+              showDetailedTable 
+                ? 'bg-gray-800 text-white border-gray-800'
+                : 'border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white'
+            }`}
+          >
+            <i className="ri-table-line"></i>
+            <span>{showDetailedTable ? 'Hide Detailed Table' : 'Show Detailed Table'}</span>
           </button>
           <button className="flex items-center gap-1 px-4 py-2 border border-primary text-primary rounded hover:bg-primary hover:text-white transition-colors">
             <i className="ri-download-line"></i>
@@ -59,6 +72,13 @@ const ServerPerformanceAnalysis = () => {
           />
           
           <OverloadEventsTable overloadEvents={overloadEvents} />
+          
+          {showDetailedTable && (
+            <DetailedLogTable 
+              data={detailedEntries}
+              showRange={showRange}
+            />
+          )}
         </div>
       )}
     </div>
