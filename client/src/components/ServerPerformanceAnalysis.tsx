@@ -6,6 +6,7 @@ import CPUFlitChart from './CPUFlitChart';
 import OverloadEventsTable from './OverloadEventsTable';
 import DetailedLogTable from './DetailedLogTable';
 import LogFileUploader from './LogFileUploader';
+import ExecutiveSummary from './ExecutiveSummary';
 import useLogData from '../hooks/useLogData';
 import { TimeRange } from '../types';
 
@@ -58,6 +59,13 @@ const ServerPerformanceAnalysis = () => {
         </div>
       ) : (
         <div>
+          <ExecutiveSummary 
+            data={data}
+            overloadEvents={overloadEvents}
+            metrics={metrics}
+            uniqueArls={uniqueArls}
+          />
+          
           <MetricsSummary metrics={metrics} />
           
           <OverloadSummary 
