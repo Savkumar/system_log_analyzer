@@ -137,6 +137,7 @@ export const parseARLRPSData = (logContent: string): ARLData[] => {
     // Example format: "10 Apr 21:01:18 3" (day month time:second requests)
     const dataMatch = trimmedLine.match(/^(\d+)\s+(\w+)\s+(\d+):(\d+):(\d+)\s+(\d+)$/);
     if (dataMatch && currentArlId !== null) {
+      console.log('RPS Found data line:', trimmedLine);
       const [_, day, month, hour, minute, second, requestCount] = dataMatch;
       
       // Convert to timestamp
