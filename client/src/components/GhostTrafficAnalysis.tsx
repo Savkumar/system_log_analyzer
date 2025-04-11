@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { useGhostTrafficData } from '../hooks/useGhostTrafficData';
 import GhostTrafficUploader from './GhostTrafficUploader';
+import ARLTrafficAnalysis from './ARLTrafficAnalysis';
 import { RPMData, RPSData, TrafficMetrics } from '../types';
 
 const GhostTrafficAnalysis = () => {
@@ -240,9 +241,16 @@ const GhostTrafficAnalysis = () => {
     <div className="mb-8">
       <h2 className="text-2xl font-bold mb-6">Ghost Traffic Analysis</h2>
       
-      <GhostTrafficUploader onFilesUploaded={handleFilesUploaded} />
+      <div className="mb-8">
+        <h3 className="text-xl font-semibold mb-4">Overall Traffic Pattern</h3>
+        <GhostTrafficUploader onFilesUploaded={handleFilesUploaded} />
+        {getTrafficAnalysisContent()}
+      </div>
       
-      {getTrafficAnalysisContent()}
+      <div>
+        <h3 className="text-xl font-semibold mb-4">ARL Level Traffic Pattern</h3>
+        <ARLTrafficAnalysis />
+      </div>
     </div>
   );
 };

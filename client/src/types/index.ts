@@ -110,3 +110,17 @@ export interface GhostTrafficData {
   rpm: RPMData[];
   rps: RPSData[];
 }
+
+export interface ARLData {
+  arlId: number;
+  requests: {
+    timestamp: number;
+    requestCount: number;
+    formattedTime: string;
+  }[];
+}
+
+export interface ARLTrafficData {
+  arlRPM: ARLData[];
+  arlRPS: ARLData[];
+}
