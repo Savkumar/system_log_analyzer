@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { LogData, TimeRange } from '../types';
 import { formatTimestamp } from '../utils/logParser';
 
@@ -71,8 +71,11 @@ const CPUFlitChart = ({ data, showRange }: CPUFlitChartProps) => {
               />
               <YAxis 
                 domain={[0, 110]} 
+                ticks={[0, 20, 40, 60, 80, 100]}
                 label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }}
               />
+              {/* Add horizontal threshold line at 100% */}
+              <ReferenceLine y={100} stroke="#999999" strokeDasharray="3 3" label={{ value: '100%', position: 'right' }} />
               <Tooltip 
                 formatter={(value: any, name: string) => {
                   if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];

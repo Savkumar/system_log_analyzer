@@ -150,8 +150,11 @@ const SystemResourcesChart = ({
                 />
                 <YAxis 
                   domain={[0, 110]} 
+                  ticks={[0, 20, 40, 60, 80, 100]}
                   label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
                 />
+                {/* Add horizontal threshold line at 100% */}
+                <ReferenceLine y={100} stroke="#999999" strokeDasharray="3 3" label={{ value: '100%', position: 'right' }} />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'cpu_all') return [`${value}%`, 'CPU Usage'];
@@ -203,8 +206,11 @@ const SystemResourcesChart = ({
                 />
                 <YAxis 
                   domain={[0, 110]} 
+                  ticks={[0, 20, 40, 60, 80, 100]}
                   label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
                 />
+                {/* Add horizontal threshold line at 100% */}
+                <ReferenceLine y={100} stroke="#999999" strokeDasharray="3 3" label={{ value: '100%', position: 'right' }} />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'flit') return [`${value}%`, 'Flit Percentage'];
@@ -264,8 +270,11 @@ const SystemResourcesChart = ({
                   yAxisId="right"
                   orientation="right"
                   domain={[0, 110]} 
+                  ticks={[0, 20, 40, 60, 80, 100]}
                   label={{ value: 'CPU Trigger (%)', angle: 90, position: 'insideRight', style: { textAnchor: 'middle' } }}
                 />
+                {/* Add horizontal threshold line at 100% for CPU Trigger */}
+                <ReferenceLine y={100} stroke="#999999" strokeDasharray="3 3" label={{ value: '100%', position: 'left' }} yAxisId="right" />
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'avg_manager_cycle') return [`${value.toFixed(2)} ms`, 'Avg Manager Cycle'];
