@@ -37,6 +37,18 @@ export interface DetailedLogEntry {
   time_difference: number;
 }
 
+export interface RequestsPerMinute {
+  timestamp: string; // Format: "DD Apr HH:MM"
+  requests: number;
+  date?: Date; // Converted date for easier chart processing
+}
+
+export interface RequestsPerSecond {
+  timestamp: string; // Format: "DD Apr HH:MM:SS"
+  requests: number;
+  date?: Date; // Converted date for easier chart processing
+}
+
 export interface MetricStat {
   min: number;
   max: number;
@@ -49,4 +61,30 @@ export interface Metrics {
   cycle: MetricStat;
 }
 
+export interface TrafficMetrics {
+  maxRPM: number;
+  avgRPM: number;
+  totalRequests: number;
+  maxRPS: number;
+  avgRPS: number;
+  timespan: string;
+}
+
 export type TimeRange = '5s' | '10s' | '15s' | '30s' | '1m' | '10m' | '30m' | '1h' | 'all';
+
+export interface RPMData {
+  timestamp: number;
+  requestCount: number;
+  formattedTime: string;
+}
+
+export interface RPSData {
+  timestamp: number;
+  requestCount: number;
+  formattedTime: string;
+}
+
+export interface GhostTrafficData {
+  rpm: RPMData[];
+  rps: RPSData[];
+}

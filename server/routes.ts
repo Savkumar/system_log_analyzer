@@ -8,10 +8,12 @@ import zlib from 'zlib';
 import { promisify } from 'util';
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Current log file path
+  // Current log file paths
   let activeLogFilePath = path.resolve(process.cwd(), 'attached_assets/paste-2.txt');
+  let activeRPMLogFilePath = path.resolve(process.cwd(), 'attached_assets/Overall_RPM.txt');
+  let activeRPSLogFilePath = path.resolve(process.cwd(), 'attached_assets/Overall_RPS.txt');
 
-  // API endpoint to serve log file content
+  // API endpoint to serve main log file content
   app.get('/api/logs', (req, res) => {
     try {
       const logContent = fs.readFileSync(activeLogFilePath, 'utf8');
@@ -20,6 +22,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error reading log file:', error);
       res.status(500).send('Error reading log file');
+    }
+  });
+  
+  // API endpoint to serve RPM log file content
+  app.get('/api/ghost/rpm', (req, res) => {
+    try {
+      const logContent = fs.readFileSync(activeRPMLogFilePath, 'utf8');
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(logContent);
+    } catch (error) {
+      console.error('Error reading RPM log file:', error);
+      res.status(500).send('Error reading RPM log file');
+    }
+  });
+  
+  // API endpoint to serve RPS log file content
+  app.get('/api/ghost/rps', (req, res) => {
+    try {
+      const logContent = fs.readFileSync(activeRPSLogFilePath, 'utf8');
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(logContent);
+    } catch (error) {
+      console.error('Error reading RPS log file:', error);
+      res.status(500).send('Error reading RPS log file');
     }
   });
 
@@ -79,6 +105,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error in file upload handler:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+  
+  // API endpoint to upload and process ghost RPM log files
+  app.post('/api/ghost/upload-rpm', async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ message: 'No files were uploaded' });
+      }
+
+      const logFile = req.files.logFile as UploadedFile;
+      const tempFilePath = logFile.tempFilePath;
+      
+      try {
+        let logContent: string;
+        
+        // Process the file based on extension
+        if (logFile.name.endsWith('.gz')) {
+          const gzippedData = fs.readFileSync(tempFilePath);
+          const gunzip = promisify(zlib.gunzip);
+          const decompressedData = await gunzip(gzippedData);
+          logContent = decompressedData.toString('utf8');
+        } 
+        else if (logFile.name.endsWith('.log') || logFile.name.endsWith('.txt')) {
+          logContent = fs.readFileSync(tempFilePath, 'utf8');
+        }
+        else {
+          return res.status(400).json({ 
+            message: 'Unsupported file format. Please upload a .gz, .log, or .txt file' 
+          });
+        }
+        
+        // Save the decompressed file
+        const decompressedFilePath = path.join('/tmp', `rpm_log_${Date.now()}.txt`);
+        fs.writeFileSync(decompressedFilePath, logContent);
+        
+        // Update the active RPM log file path
+        activeRPMLogFilePath = decompressedFilePath;
+        
+        return res.status(200).json({ 
+          message: 'RPM log file uploaded and processed successfully',
+          lines: logContent.split('\n').length
+        });
+      } catch (error) {
+        console.error('Error processing RPM log file:', error);
+        return res.status(500).json({ message: 'Error processing RPM log file' });
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    } catch (error) {
+      console.error('Error in RPM file upload handler:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+  
+  // API endpoint to upload and process ghost RPS log files
+  app.post('/api/ghost/upload-rps', async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ message: 'No files were uploaded' });
+      }
+
+      const logFile = req.files.logFile as UploadedFile;
+      const tempFilePath = logFile.tempFilePath;
+      
+      try {
+        let logContent: string;
+        
+        // Process the file based on extension
+        if (logFile.name.endsWith('.gz')) {
+          const gzippedData = fs.readFileSync(tempFilePath);
+          const gunzip = promisify(zlib.gunzip);
+          const decompressedData = await gunzip(gzippedData);
+          logContent = decompressedData.toString('utf8');
+        } 
+        else if (logFile.name.endsWith('.log') || logFile.name.endsWith('.txt')) {
+          logContent = fs.readFileSync(tempFilePath, 'utf8');
+        }
+        else {
+          return res.status(400).json({ 
+            message: 'Unsupported file format. Please upload a .gz, .log, or .txt file' 
+          });
+        }
+        
+        // Save the decompressed file
+        const decompressedFilePath = path.join('/tmp', `rps_log_${Date.now()}.txt`);
+        fs.writeFileSync(decompressedFilePath, logContent);
+        
+        // Update the active RPS log file path
+        activeRPSLogFilePath = decompressedFilePath;
+        
+        return res.status(200).json({ 
+          message: 'RPS log file uploaded and processed successfully',
+          lines: logContent.split('\n').length
+        });
+      } catch (error) {
+        console.error('Error processing RPS log file:', error);
+        return res.status(500).json({ message: 'Error processing RPS log file' });
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    } catch (error) {
+      console.error('Error in RPS file upload handler:', error);
       return res.status(500).json({ message: 'Server error' });
     }
   });

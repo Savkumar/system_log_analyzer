@@ -7,6 +7,7 @@ import OverloadEventsTable from './OverloadEventsTable';
 import DetailedLogTable from './DetailedLogTable';
 import LogFileUploader from './LogFileUploader';
 import ExecutiveSummary from './ExecutiveSummary';
+import GhostTrafficAnalysis from './GhostTrafficAnalysis';
 import useLogData from '../hooks/useLogData';
 import { TimeRange } from '../types';
 
@@ -93,6 +94,11 @@ const ServerPerformanceAnalysis = () => {
               showRange={showRange}
             />
           )}
+          
+          {/* Ghost Traffic Analysis Section */}
+          <div className="mt-8 pt-8 border-t border-gray-200">
+            <GhostTrafficAnalysis />
+          </div>
         </div>
       )}
     </div>
