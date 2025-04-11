@@ -112,7 +112,7 @@ export const parseLogFile = async (logContent: string): Promise<{
         // Create overload event with system state data
         const event: OverloadEvent = {
           timestamp,
-          triggered_by_cpu: cpuTriggerValue,
+          triggered_by_cpu: triggerValue, // Use the dynamic trigger value
           arlid,
           rule,
           cpu_all: closestDataPoint ? closestDataPoint.cpu_all : 0,
@@ -128,7 +128,7 @@ export const parseLogFile = async (logContent: string): Promise<{
           cpu_all: closestDataPoint ? closestDataPoint.cpu_all : 0,
           flit: closestDataPoint ? closestDataPoint.flit : 0,
           avg_manager_cycle: closestDataPoint ? closestDataPoint.avg_manager_cycle : 0,
-          triggered_by_cpu: cpuTriggerValue,
+          triggered_by_cpu: triggerValue, // Use the dynamic trigger value
           arlid: arlid || 0
         });
       }
@@ -164,6 +164,18 @@ export const parseLogFile = async (logContent: string): Promise<{
   // Find unique ARLs affected by overload events
   const uniqueArlSet = new Set(events.filter(e => e.arlid).map(e => e.arlid as number));
   const uniqueArls = Array.from(uniqueArlSet);
+  
+  // Debug: Log how many events we detected
+  console.log(`[parseLogFile] Detected ${events.length} overload events`);
+  if (events.length > 0) {
+    console.log(`[parseLogFile] Sample overload event:`, events[0]);
+    
+    // Get all rules for summary
+    const rules = events.map(e => e.rule).filter(Boolean);
+    // Convert to array using Array.from for better TS compatibility
+    const uniqueRules = Array.from(new Set(rules as string[]));
+    console.log(`[parseLogFile] Rules detected:`, uniqueRules);
+  }
   
   return { parsedData, events, metrics, uniqueArls };
 };
@@ -221,6 +233,17 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
   // Process candidate target lines first to get details
   const candidateLines = lines.filter(line => line.includes('addCandidateTarget()'));
   
+  // Debug - log if any of the candidates contain a FLIT rule
+  const flitRuleLines = candidateLines.filter(line => 
+    line.toLowerCase().includes('rule:') && 
+    line.toLowerCase().includes('flit')
+  );
+  console.log(`[parseDetailedLogEntries] Found ${candidateLines.length} candidate lines`);
+  console.log(`[parseDetailedLogEntries] Of which ${flitRuleLines.length} contain FLIT rule references`);
+  if (flitRuleLines.length > 0) {
+    console.log(`[parseDetailedLogEntries] Sample FLIT rule line: ${flitRuleLines[0]}`);
+  }
+  
   candidateLines.forEach(line => {
     const timestampMatch = line.match(/^(\d+\.\d+)/);
     if (!timestampMatch) return;
@@ -263,24 +286,52 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
   });
   
   // Process processMainLoop lines to get triggered by information
-  const mainLoopLines = lines.filter(line => line.includes('processMainLoop()') && line.includes('triggered by cpu:'));
+  // Look for both CPU and FLIT triggers
+  const mainLoopLines = lines.filter(line => 
+    line.includes('processMainLoop()') && 
+    (line.includes('triggered by cpu:') || line.includes('triggered by flit:'))
+  );
+  
+  // Debug logging for our filter
+  console.log(`[parseDetailedLogEntries] Found ${mainLoopLines.length} processMainLoop lines`);
+  if (mainLoopLines.length > 0) {
+    console.log(`[parseDetailedLogEntries] Sample line: ${mainLoopLines[0]}`);
+  }
   
   mainLoopLines.forEach(line => {
     const timestampMatch = line.match(/^(\d+\.\d+)/);
-    const triggeredByMatch = line.match(/triggered by cpu:([0-9.]+)/);
+    let triggerType = 'unknown';
+    let triggerValue = 0;
     
-    if (timestampMatch && triggeredByMatch) {
+    // Check for CPU trigger
+    const cpuTriggerMatch = line.match(/triggered by cpu:([0-9.]+)/);
+    if (cpuTriggerMatch) {
+      triggerType = 'cpu';
+      triggerValue = parseFloat(cpuTriggerMatch[1]);
+    }
+    
+    // Check for FLIT trigger
+    const flitTriggerMatch = line.match(/triggered by flit:([0-9.]+)/);
+    if (flitTriggerMatch) {
+      triggerType = 'flit';
+      triggerValue = parseFloat(flitTriggerMatch[1]);
+    }
+    
+    if (timestampMatch && triggerType !== 'unknown') {
       const timestamp = parseFloat(timestampMatch[1]);
-      const triggeredValue = parseFloat(triggeredByMatch[1]);
       
       // Find the corresponding CRP event (should be very close in time)
       const matchingEvent = crpEvents.find(e => 
         Math.abs(e.timestamp - Math.floor(timestamp)) < 1
       );
       
+      // Debug log to see which events we're matching
+      console.log(`[parseDetailedLogEntries] Trigger at ${timestamp}: ${triggerType} = ${triggerValue}`);
+      console.log(`[parseDetailedLogEntries] Matching event found: ${matchingEvent ? 'yes' : 'no'}`);
+      
       if (matchingEvent) {
-        matchingEvent.crp_triggered_by = 'cpu';
-        matchingEvent.crp_triggered_pct = triggeredValue * 100; // Scale to percentage
+        matchingEvent.crp_triggered_by = triggerType;
+        matchingEvent.crp_triggered_pct = triggerValue * 100; // Scale to percentage
       }
     }
   });
