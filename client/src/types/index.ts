@@ -17,6 +17,26 @@ export interface OverloadEvent {
   avg_manager_cycle: number;
 }
 
+export interface DetailedLogEntry {
+  timestamp: number;
+  http_accepts: number;
+  https_accepts: number;
+  flit: number;
+  cpu_all: number;
+  mem_rss: number;
+  avg_mgr_cycle: number;
+  crp_rule: string;
+  crp_arlid: number | null;
+  crp_trigger_pct: number;
+  crp_deny_pct: number;
+  crp_metrics_cpu: number;
+  crp_metrics_mem: number;
+  crp_metrics_reqs: number;
+  crp_triggered_by: string;
+  crp_triggered_pct: number;
+  time_difference: number;
+}
+
 export interface MetricStat {
   min: number;
   max: number;

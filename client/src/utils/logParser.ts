@@ -1,4 +1,4 @@
-import { LogData, OverloadEvent, Metrics } from '../types';
+import { LogData, OverloadEvent, Metrics, DetailedLogEntry } from '../types';
 
 // Format timestamp for display
 export const formatTimestamp = (timestamp: number): string => {
@@ -143,4 +143,148 @@ export const parseLogFile = async (logContent: string): Promise<{
   const uniqueArls = Array.from(uniqueArlSet);
   
   return { parsedData, events, metrics, uniqueArls };
+};
+
+// Parse log file for detailed entries with all the requested fields
+export const parseDetailedLogEntries = async (logContent: string): Promise<DetailedLogEntry[]> => {
+  const lines = logContent.split('\n');
+  const entries: DetailedLogEntry[] = [];
+  
+  // Process Robust stats lines first to get main data points
+  const statsLines = lines.filter(line => line.includes('Robust - stats:'));
+  
+  statsLines.forEach((line, index) => {
+    const timestampMatch = line.match(/^(\d+\.\d+)/);
+    if (!timestampMatch) return;
+    
+    const timestamp = parseFloat(timestampMatch[1]);
+    const cpuMatch = line.match(/CPU: all (\d+)%/);
+    const flitMatch = line.match(/flit (\d+)%/);
+    const cycleMatch = line.match(/AVG manager cycle (\d+)us/);
+    const memRssMatch = line.match(/Mem RSS (\d+) KB/);
+    const httpAcceptsMatch = line.match(/Accepts: http\/https (\d+)\/(\d+)/);
+    
+    // Create a base entry with data from the stats line
+    const entry: DetailedLogEntry = {
+      timestamp: Math.floor(timestamp),
+      http_accepts: httpAcceptsMatch ? parseInt(httpAcceptsMatch[1]) : 0,
+      https_accepts: httpAcceptsMatch ? parseInt(httpAcceptsMatch[2]) : 0,
+      flit: flitMatch ? parseInt(flitMatch[1]) : 0,
+      cpu_all: cpuMatch ? parseInt(cpuMatch[1]) : 0,
+      mem_rss: memRssMatch ? parseInt(memRssMatch[1]) : 0,
+      avg_mgr_cycle: cycleMatch ? parseInt(cycleMatch[1]) / 1000 : 0, // Convert to ms
+      crp_rule: 'N/A',
+      crp_arlid: null,
+      crp_trigger_pct: 0,
+      crp_deny_pct: 0,
+      crp_metrics_cpu: 0,
+      crp_metrics_mem: 0,
+      crp_metrics_reqs: 0,
+      crp_triggered_by: 'N/A',
+      crp_triggered_pct: 0,
+      time_difference: 0
+    };
+    
+    // Add to entries
+    entries.push(entry);
+  });
+  
+  // Sort entries by timestamp
+  entries.sort((a, b) => a.timestamp - b.timestamp);
+  
+  // Now find all CRP event lines
+  const crpEvents: DetailedLogEntry[] = [];
+  
+  // Process candidate target lines first to get details
+  const candidateLines = lines.filter(line => line.includes('addCandidateTarget()'));
+  
+  candidateLines.forEach(line => {
+    const timestampMatch = line.match(/^(\d+\.\d+)/);
+    if (!timestampMatch) return;
+    
+    const timestamp = parseFloat(timestampMatch[1]);
+    const arlidMatch = line.match(/arlid:(\d+)/);
+    const ruleMatch = line.match(/rule:'([^']+)'/);
+    const triggerPctMatch = line.match(/trigger_pct:([0-9.]+)%/);
+    const denyPctMatch = line.match(/deny_pct:([0-9.]+)%/);
+    const metricsCpuMatch = line.match(/metrics \(cpu:(\d+)ms/);
+    const metricsMemMatch = line.match(/mem:(\d+)KB/);
+    const metricsReqsMatch = line.match(/reqs:(\d+)\)/);
+    
+    // Get the closest standard entry as a base
+    let closestEntry = entries[0];
+    for (const entry of entries) {
+      if (Math.abs(entry.timestamp - Math.floor(timestamp)) < 
+          Math.abs(closestEntry.timestamp - Math.floor(timestamp))) {
+        closestEntry = entry;
+      }
+    }
+    
+    // Create a CRP event entry
+    const crpEvent: DetailedLogEntry = {
+      ...closestEntry,
+      timestamp: Math.floor(timestamp),
+      crp_rule: ruleMatch ? ruleMatch[1] : 'N/A',
+      crp_arlid: arlidMatch ? parseInt(arlidMatch[1]) : null,
+      crp_trigger_pct: triggerPctMatch ? parseFloat(triggerPctMatch[1]) : 0,
+      crp_deny_pct: denyPctMatch ? parseFloat(denyPctMatch[1]) : 0,
+      crp_metrics_cpu: metricsCpuMatch ? parseInt(metricsCpuMatch[1]) : 0,
+      crp_metrics_mem: metricsMemMatch ? parseInt(metricsMemMatch[1]) : 0,
+      crp_metrics_reqs: metricsReqsMatch ? parseInt(metricsReqsMatch[1]) : 0,
+      crp_triggered_by: 'N/A', // Will be filled in next step
+      crp_triggered_pct: 0,     // Will be filled in next step
+      time_difference: 0        // Will be calculated at the end
+    };
+    
+    crpEvents.push(crpEvent);
+  });
+  
+  // Process processMainLoop lines to get triggered by information
+  const mainLoopLines = lines.filter(line => line.includes('processMainLoop()') && line.includes('triggered by cpu:'));
+  
+  mainLoopLines.forEach(line => {
+    const timestampMatch = line.match(/^(\d+\.\d+)/);
+    const triggeredByMatch = line.match(/triggered by cpu:([0-9.]+)/);
+    
+    if (timestampMatch && triggeredByMatch) {
+      const timestamp = parseFloat(timestampMatch[1]);
+      const triggeredValue = parseFloat(triggeredByMatch[1]);
+      
+      // Find the corresponding CRP event (should be very close in time)
+      const matchingEvent = crpEvents.find(e => 
+        Math.abs(e.timestamp - Math.floor(timestamp)) < 1
+      );
+      
+      if (matchingEvent) {
+        matchingEvent.crp_triggered_by = 'cpu';
+        matchingEvent.crp_triggered_pct = triggeredValue * 100; // Scale to percentage
+      }
+    }
+  });
+  
+  // Merge regular entries with CRP events, giving preference to CRP events
+  const merged = [...entries];
+  
+  crpEvents.forEach(crpEvent => {
+    const existingIndex = merged.findIndex(e => e.timestamp === crpEvent.timestamp);
+    if (existingIndex >= 0) {
+      merged[existingIndex] = crpEvent;
+    } else {
+      merged.push(crpEvent);
+    }
+  });
+  
+  // Sort by timestamp
+  merged.sort((a, b) => a.timestamp - b.timestamp);
+  
+  // Calculate time differences between CRP events
+  const crpOnlyEvents = merged.filter(e => e.crp_arlid !== null);
+  
+  crpOnlyEvents.forEach((event, index) => {
+    if (index > 0) {
+      event.time_difference = event.timestamp - crpOnlyEvents[index - 1].timestamp;
+    }
+  });
+  
+  return merged;
 };
