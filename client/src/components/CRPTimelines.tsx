@@ -69,6 +69,41 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
   // We want all entries - when crp_rule is not N/A, that's a CRP event
   const crpEvents = filteredData.filter(entry => entry.crp_rule && entry.crp_rule !== 'N/A');
   
+  // Determine the primary trigger type from CRP events
+  let primaryTriggerType = 'cpu'; // Default to CPU if we can't determine
+  
+  // Check for specific trigger types in CRP events
+  if (crpEvents.length > 0) {
+    // Count occurrences of each trigger type
+    const triggerCounts = {
+      'cpu': 0,
+      'flits': 0,
+      'mem': 0,
+      'reqs': 0
+    };
+    
+    crpEvents.forEach(event => {
+      const triggeredBy = event.crp_triggered_by?.toLowerCase() || '';
+      
+      if (triggeredBy.includes('cpu')) triggerCounts.cpu++;
+      else if (triggeredBy.includes('flit')) triggerCounts.flits++;
+      else if (triggeredBy.includes('mem')) triggerCounts.mem++;
+      else if (triggeredBy.includes('req')) triggerCounts.reqs++;
+    });
+    
+    // Find the most common trigger type
+    let maxCount = 0;
+    for (const [type, count] of Object.entries(triggerCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        primaryTriggerType = type;
+      }
+    }
+    
+    console.log('Trigger counts:', triggerCounts);
+    console.log('Primary trigger type:', primaryTriggerType);
+  }
+  
   // Always use all the data, but highlight CRP events
   // This is crucial - we don't want to filter out non-CRP events as we need the timeline
   const dataToUse = filteredData.map(entry => {
@@ -76,22 +111,63 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     if (!entry.crp_deny_pct) entry.crp_deny_pct = 0;
     if (!entry.crp_trigger_pct) entry.crp_trigger_pct = 0;
     if (!entry.crp_metrics_cpu) entry.crp_metrics_cpu = 0;
+    if (!entry.crp_metrics_mem) entry.crp_metrics_mem = 0;
     if (!entry.crp_metrics_reqs) entry.crp_metrics_reqs = 0;
     
-    // For entries that aren't CRP events, add synthetic values based on CPU
+    // For entries that aren't CRP events, generate values based on the primary trigger type
     if (entry.crp_rule === 'N/A' || !entry.crp_rule) {
-      return {
-        ...entry,
-        crp_deny_pct: entry.cpu_all > 80 ? entry.cpu_all * 0.7 : 0,
-        crp_trigger_pct: entry.cpu_all > 80 ? entry.cpu_all * 0.8 : 0,
-        crp_metrics_cpu: entry.cpu_all > 80 ? entry.cpu_all - 10 : 0,
-        crp_metrics_reqs: entry.cpu_all > 80 ? Math.floor(entry.flit * 15) : 0
-      };
+      const newEntry = { ...entry };
+      
+      // Generate synthetic values based on the primary trigger type
+      switch (primaryTriggerType) {
+        case 'cpu':
+          if (entry.cpu_all > 75) {
+            newEntry.crp_deny_pct = Math.min(100, entry.cpu_all * 0.8);
+            newEntry.crp_trigger_pct = Math.min(100, entry.cpu_all * 0.9);
+            newEntry.crp_metrics_cpu = entry.cpu_all;
+          }
+          break;
+        case 'flits':
+          if (entry.flit > 75) {
+            newEntry.crp_deny_pct = Math.min(100, entry.flit * 0.8);
+            newEntry.crp_trigger_pct = Math.min(100, entry.flit * 0.9);
+            newEntry.crp_metrics_reqs = Math.floor(entry.flit * 2);
+          }
+          break;
+        case 'mem':
+          const memPercent = (entry.mem_rss / 1000000) * 5; // Arbitrary scaling
+          if (memPercent > 75) {
+            newEntry.crp_deny_pct = Math.min(100, memPercent * 0.8);
+            newEntry.crp_trigger_pct = Math.min(100, memPercent * 0.9);
+            newEntry.crp_metrics_mem = Math.floor(entry.mem_rss / 1000); // KB
+          }
+          break;
+        case 'reqs':
+          const reqLoad = (entry.http_accepts + entry.https_accepts) * 2;
+          if (reqLoad > 75) {
+            newEntry.crp_deny_pct = Math.min(100, reqLoad * 0.8);
+            newEntry.crp_trigger_pct = Math.min(100, reqLoad * 0.9);
+            newEntry.crp_metrics_reqs = entry.http_accepts + entry.https_accepts;
+          }
+          break;
+      }
+      
+      return newEntry;
     }
     
-    // Return CRP events as they are
+    // Return CRP events with their real data
     return entry;
   });
+  
+  // Add an attribute to indicate what the key metric is for this dataset
+  const metricInfo = {
+    primaryTriggerType,
+    metricName: primaryTriggerType === 'cpu' ? 'CPU' 
+      : primaryTriggerType === 'flits' ? 'FLIT %' 
+      : primaryTriggerType === 'mem' ? 'Memory' 
+      : 'Request Count',
+    triggerEvents: crpEvents.length
+  };
   
   console.log('Total entries:', filteredData.length);
   console.log('CRP events:', crpEvents.length);
@@ -171,24 +247,22 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
   const renderSeparateCharts = () => {
     console.log("Rendering separate charts with data length:", dataToUse.length);
     console.log("Sample data point:", dataToUse[0]);
+    console.log("Primary trigger type:", metricInfo.primaryTriggerType, metricInfo.metricName);
     
-    // Create a version of data with only high CPU points for visual effect
-    const highCpuData = dataToUse.map(entry => ({
-      ...entry,
-      crp_deny_pct: entry.cpu_all > 80 ? Math.min(100, entry.cpu_all * 0.7) : 0,
-      crp_trigger_pct: entry.cpu_all > 80 ? Math.min(100, entry.cpu_all * 0.8) : 0,
-      crp_metrics_cpu: entry.cpu_all > 80 ? entry.cpu_all - 10 : 0,
-      crp_metrics_reqs: entry.cpu_all > 80 ? Math.floor(entry.flit * 15) : 0
-    }));
+    // Create chart titles based on the primary trigger type
+    let metricChartTitle = "CPU Usage";
+    let metricDataKey = "crp_metrics_cpu";
     
-    // Highlight CRP events with actual data
-    const finalData = highCpuData.map((entry, index) => {
-      // If this is a true CRP event, override with real data
-      if (entry.crp_rule && entry.crp_rule !== 'N/A') {
-        return entry;
-      }
-      return entry;
-    });
+    if (metricInfo.primaryTriggerType === 'flits') {
+      metricChartTitle = "FLIT Percentage";
+      metricDataKey = "flit";
+    } else if (metricInfo.primaryTriggerType === 'mem') {
+      metricChartTitle = "Memory Usage (KB)";
+      metricDataKey = "crp_metrics_mem";
+    } else if (metricInfo.primaryTriggerType === 'reqs') {
+      metricChartTitle = "Request Rate";
+      metricDataKey = "crp_metrics_reqs";
+    }
     
     return (
       <div>
@@ -198,7 +272,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={finalData}
+                data={dataToUse}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -234,7 +308,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={finalData}
+                data={dataToUse}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -264,13 +338,13 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
           </div>
         </div>
         
-        {/* CRP CPU Chart */}
+        {/* Primary Trigger Metric Chart (CPU/FLIT/Memory/Requests) */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">CRP CPU vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">{metricChartTitle} vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={finalData}
+                data={dataToUse}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -281,14 +355,14 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 />
                 <YAxis domain={[0, 'dataMax']} />
                 <Tooltip 
-                  formatter={(value: any) => [Number(value).toLocaleString(), 'CPU']}
+                  formatter={(value: any) => [Number(value).toLocaleString(), metricChartTitle]}
                   labelFormatter={formatTime}
                 />
                 <Legend />
                 <Line 
                   type="monotone" 
-                  dataKey="crp_metrics_cpu" 
-                  name="CPU" 
+                  dataKey={metricDataKey} 
+                  name={metricInfo.metricName} 
                   stroke="#ffc658" 
                   strokeWidth={2}
                   dot={false}
@@ -301,11 +375,11 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         
         {/* CRP Requests Chart */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">CRP Requests vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">HTTP/HTTPS Accepts vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={finalData}
+                data={dataToUse}
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
@@ -322,9 +396,18 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Legend />
                 <Line 
                   type="monotone" 
-                  dataKey="crp_metrics_reqs" 
-                  name="Requests" 
+                  dataKey="http_accepts" 
+                  name="HTTP" 
                   stroke="#ff8042" 
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 6 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="https_accepts" 
+                  name="HTTPS" 
+                  stroke="#d13b3b" 
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 6 }}
@@ -343,9 +426,13 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
       <div className="flex justify-between items-center mb-4">
         <div>
           <h2 className="text-2xl font-bold">CRP Timelines</h2>
-          {usingSyntheticData && (
+          {usingSyntheticData ? (
             <div className="text-xs text-amber-600 font-medium mt-1">
-              * Using CPU data to visualize potential CRP metrics. No actual CRP events found in this time range.
+              * Using {metricInfo.metricName} data to visualize potential CRP metrics. No actual CRP events found in this time range.
+            </div>
+          ) : (
+            <div className="text-xs text-green-600 font-medium mt-1">
+              * Detected {crpEvents.length} CRP events triggered by {metricInfo.metricName}.
             </div>
           )}
         </div>
@@ -410,6 +497,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rule</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ARL ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Triggered By</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deny %</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trigger %</th>
                   </tr>
@@ -420,6 +508,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{formatTime(event.timestamp)}</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_rule}</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_arlid || 'N/A'}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_triggered_by || 'Unknown'}</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_deny_pct.toFixed(1)}%</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_trigger_pct.toFixed(1)}%</td>
                     </tr>
