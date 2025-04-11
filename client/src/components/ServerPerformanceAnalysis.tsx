@@ -5,6 +5,7 @@ import SystemResourcesChart from './SystemResourcesChart';
 import CPUFlitChart from './CPUFlitChart';
 import OverloadEventsTable from './OverloadEventsTable';
 import DetailedLogTable from './DetailedLogTable';
+import LogFileUploader from './LogFileUploader';
 import useLogData from '../hooks/useLogData';
 
 const ServerPerformanceAnalysis = () => {
