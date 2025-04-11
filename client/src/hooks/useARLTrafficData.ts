@@ -43,11 +43,17 @@ export function useARLTrafficData(): ARLTrafficDataReturn {
       setLoading(true);
       setError(null);
       
+      console.log('Parsing ARL RPS data, content length:', logContent.length);
+      console.log('Sample RPS content:', logContent.substring(0, 100));
+      
       const parsedData = parseARLRPSData(logContent);
+      console.log('Parsed ARL RPS data:', parsedData);
+      
       setARLRPSData(parsedData);
       
       setLoading(false);
     } catch (err) {
+      console.error('Error parsing ARL RPS data:', err);
       setError(`Error parsing ARL RPS data: ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
     }

@@ -18,13 +18,18 @@ export const parseARLRPMData = (logContent: string): ARLData[] => {
   for (const line of lines) {
     const trimmedLine = line.trim();
     
-    // Skip empty lines, comments, and command lines
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
+    // Sample a few lines for debugging
+    if (Math.random() < 0.1) {
+      console.log('Sample line:', trimmedLine);
+    }
+    
+    // Skip empty lines and command lines, but not lines with # if they contain "ARL ID"
+    if (!trimmedLine || (trimmedLine.startsWith('#') && !trimmedLine.includes('ARL ID'))) {
       continue;
     }
     
-    // Check if this is an ARL ID line
-    const arlIdMatch = trimmedLine.match(/^## ARL ID: (\d+)/);
+    // Check if this is an ARL ID line - more lenient matching for "## ARL ID: 12345" or "ARL ID: 12345"
+    const arlIdMatch = trimmedLine.match(/(?:^##\s*)ARL ID:\s*(\d+)/);
     if (arlIdMatch) {
       console.log('Found ARL ID line:', trimmedLine);
       // If we already have a current ARL ID, save it before starting a new one
@@ -86,8 +91,11 @@ export const parseARLRPMData = (logContent: string): ARLData[] => {
  * Example: 10 Apr 21:01:18 3
  */
 export const parseARLRPSData = (logContent: string): ARLData[] => {
+  console.log('parseARLRPSData called with content of length:', logContent.length);
+  
   const arlDataArray: ARLData[] = [];
   const lines = logContent.split('\n');
+  console.log('Number of lines in RPS data:', lines.length);
   
   let currentArlId: number | null = null;
   let currentRequests: { timestamp: number; requestCount: number; formattedTime: string }[] = [];
@@ -95,24 +103,32 @@ export const parseARLRPSData = (logContent: string): ARLData[] => {
   for (const line of lines) {
     const trimmedLine = line.trim();
     
-    // Skip empty lines, comments, and command lines
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
+    // Sample a few lines for debugging
+    if (Math.random() < 0.05) {
+      console.log('RPS Sample line:', trimmedLine);
+    }
+    
+    // Skip empty lines and command lines, but not lines with # if they contain "ARL ID"
+    if (!trimmedLine || (trimmedLine.startsWith('#') && !trimmedLine.includes('ARL ID'))) {
       continue;
     }
     
-    // Check if this is an ARL ID line
-    const arlIdMatch = trimmedLine.match(/^## ARL ID: (\d+)/);
+    // Check if this is an ARL ID line - more lenient matching for "## ARL ID: 12345" or "ARL ID: 12345"
+    const arlIdMatch = trimmedLine.match(/(?:^##\s*)ARL ID:\s*(\d+)/);
     if (arlIdMatch) {
+      console.log('Found ARL ID line in RPS data:', trimmedLine);
       // If we already have a current ARL ID, save it before starting a new one
       if (currentArlId !== null && currentRequests.length > 0) {
         arlDataArray.push({
           arlId: currentArlId,
           requests: [...currentRequests]
         });
+        console.log(`Added ARL ID ${currentArlId} with ${currentRequests.length} RPS requests`);
       }
       
       // Start tracking a new ARL ID
       currentArlId = parseInt(arlIdMatch[1], 10);
+      console.log('New current ARL ID in RPS data:', currentArlId);
       currentRequests = [];
       continue;
     }
