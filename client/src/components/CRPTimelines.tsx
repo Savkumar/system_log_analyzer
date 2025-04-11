@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   LineChart, 
   Line, 
@@ -26,8 +26,8 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
   };
   
   // Filter data based on time range
-  const getDataForRange = (range: TimeRange, data: DetailedLogEntry[]): DetailedLogEntry[] => {
-    if (range === 'all') return data;
+  const filteredData = (() => {
+    if (showRange === 'all') return data;
     
     const now = Math.floor(Date.now() / 1000);
     const rangeMap: Record<TimeRange, number> = {
@@ -42,56 +42,34 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
       'all': 0
     };
     
-    const seconds = rangeMap[range];
+    const seconds = rangeMap[showRange];
     if (seconds === 0) return data;
     
     const cutoffTime = now - seconds;
     return data.filter(item => item.timestamp >= cutoffTime);
-  };
+  })();
   
-  const filteredData = getDataForRange(showRange, data);
+  // Process CRP data
+  const realCrpData = filteredData.filter(entry => 
+    entry.crp_deny_pct > 0 || 
+    entry.crp_trigger_pct > 0 ||
+    entry.crp_metrics_cpu > 0 ||
+    entry.crp_metrics_reqs > 0
+  );
   
-  // Only include data points that have non-zero CRP values
-  // Try to get real CRP data first
-  const [usingSyntheticData, setUsingSyntheticData] = useState(false);
-  const [crpData, setCrpData] = useState<DetailedLogEntry[]>([]);
+  // Determine if using real or synthetic data
+  const usingSyntheticData = realCrpData.length === 0 && filteredData.length > 0;
   
-  useEffect(() => {
-    // Look for real CRP data first
-    const realCrpData = filteredData.filter(entry => 
-      entry.crp_deny_pct > 0 || 
-      entry.crp_trigger_pct > 0 ||
-      entry.crp_metrics_cpu > 0 ||
-      entry.crp_metrics_reqs > 0
-    );
-    
-    console.log('Real CRP Data available:', realCrpData.length > 0);
-    
-    if (realCrpData.length > 0) {
-      // We have real data
-      setCrpData(realCrpData);
-      setUsingSyntheticData(false);
-    } else if (filteredData.length > 0) {
-      // Generate synthetic CRP data based on the CPU and other metrics if real data isn't available
-      const syntheticData = filteredData.map(entry => {
-        return {
-          ...entry,
-          // Use CPU value as a base for synthetic CRP metrics to make it realistic
-          crp_deny_pct: Math.max(0, Math.min(100, entry.cpu_all * 0.8)), // 80% of CPU
-          crp_trigger_pct: Math.max(0, Math.min(100, entry.cpu_all * 0.9)), // 90% of CPU
-          crp_metrics_cpu: Math.max(0, entry.cpu_all - 5), // Slightly less than actual CPU
-          crp_metrics_reqs: Math.floor(entry.flit * 10) // Some arbitrary calculation based on flit
-        };
-      });
-      
-      setCrpData(syntheticData);
-      setUsingSyntheticData(true);
-      console.log('Using synthetic CRP data for demonstration');
-    } else {
-      // No data at all
-      setCrpData([]);
-    }
-  }, [filteredData]);
+  // Generate final CRP data
+  const crpData = usingSyntheticData 
+    ? filteredData.map(entry => ({
+        ...entry,
+        crp_deny_pct: Math.max(0, Math.min(100, entry.cpu_all * 0.8)), // 80% of CPU
+        crp_trigger_pct: Math.max(0, Math.min(100, entry.cpu_all * 0.9)), // 90% of CPU
+        crp_metrics_cpu: Math.max(0, entry.cpu_all - 5), // Slightly less than actual CPU
+        crp_metrics_reqs: Math.floor(entry.flit * 10) // Some arbitrary calculation based on flit
+      }))
+    : realCrpData;
   
   const renderCombinedChart = () => (
     <div className="h-96 mb-6">
