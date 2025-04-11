@@ -22,11 +22,17 @@ export function useARLTrafficData(): ARLTrafficDataReturn {
       setLoading(true);
       setError(null);
       
+      console.log('Parsing ARL RPM data, content length:', logContent.length);
+      console.log('Sample content:', logContent.substring(0, 100));
+      
       const parsedData = parseARLRPMData(logContent);
+      console.log('Parsed ARL RPM data:', parsedData);
+      
       setARLRPMData(parsedData);
       
       setLoading(false);
     } catch (err) {
+      console.error('Error parsing ARL RPM data:', err);
       setError(`Error parsing ARL RPM data: ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
     }

@@ -6,8 +6,11 @@ import { ARLData } from '../types';
  * Example: 10 Apr 21:01 66
  */
 export const parseARLRPMData = (logContent: string): ARLData[] => {
+  console.log('parseARLRPMData called with content of length:', logContent.length);
+  
   const arlDataArray: ARLData[] = [];
   const lines = logContent.split('\n');
+  console.log('Number of lines:', lines.length);
   
   let currentArlId: number | null = null;
   let currentRequests: { timestamp: number; requestCount: number; formattedTime: string }[] = [];
@@ -23,16 +26,19 @@ export const parseARLRPMData = (logContent: string): ARLData[] => {
     // Check if this is an ARL ID line
     const arlIdMatch = trimmedLine.match(/^## ARL ID: (\d+)/);
     if (arlIdMatch) {
+      console.log('Found ARL ID line:', trimmedLine);
       // If we already have a current ARL ID, save it before starting a new one
       if (currentArlId !== null && currentRequests.length > 0) {
         arlDataArray.push({
           arlId: currentArlId,
           requests: [...currentRequests]
         });
+        console.log(`Added ARL ID ${currentArlId} with ${currentRequests.length} requests`);
       }
       
       // Start tracking a new ARL ID
       currentArlId = parseInt(arlIdMatch[1], 10);
+      console.log('New current ARL ID:', currentArlId);
       currentRequests = [];
       continue;
     }
@@ -41,6 +47,7 @@ export const parseARLRPMData = (logContent: string): ARLData[] => {
     // Example format: "10 Apr 21:01 66" (day month time requests)
     const dataMatch = trimmedLine.match(/^(\d+)\s+(\w+)\s+(\d+):(\d+)\s+(\d+)$/);
     if (dataMatch && currentArlId !== null) {
+      console.log('Found data line:', trimmedLine);
       const [_, day, month, hour, minute, requestCount] = dataMatch;
       
       // Convert to timestamp

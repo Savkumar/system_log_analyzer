@@ -75,6 +75,8 @@ const ARLTrafficUploader = ({ onRPMFileUploaded, onRPSFileUploaded }: ARLTraffic
       return response.text();
     })
     .then(content => {
+      console.log(`Received ${fileType.toUpperCase()} content from server:`, content.substring(0, 200) + '...');
+      
       if (fileType === 'rpm') {
         setRPMFileName(file.name);
         onRPMFileUploaded(content);
