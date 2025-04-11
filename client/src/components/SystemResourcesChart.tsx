@@ -124,14 +124,42 @@ const SystemResourcesChart = ({
   };
   
   // Filter data for the selected time range
+  // Get the appropriate trigger data based on detected trigger type
+  const getTriggerValue = (item: LogData) => {
+    switch (triggerType) {
+      case 'flits':
+        // Use FLIT value if detected as FLIT trigger
+        // We might need to scale the value if it's not already in percentage
+        return item.flit;
+      case 'mem':
+        // Memory-based trigger - would need actual memory metric 
+        // This is a fallback to CPU trigger if actual memory trigger data not available
+        return item.triggered_by_cpu;
+      case 'reqs':
+        // Request-based trigger - would need actual request metric
+        // This is a fallback to CPU trigger if actual request trigger data not available
+        return item.triggered_by_cpu;
+      case 'cpu':
+      default:
+        // Default to CPU trigger
+        return item.triggered_by_cpu;
+    }
+  };
+
+  // Create data with dynamic trigger values
   const displayData = getDataForRange(showRange, data).map(item => {
-    // Create a modified data object with dynamic trigger data property based on detected type
+    // Create a modified data object with dynamic trigger data property
     return {
       ...item,
-      // Keep original data but also add a dynamic trigger property for charts
-      trigger_dynamic: item.triggered_by_cpu // This keeps all the original data but adds a new key
+      // Set the trigger_dynamic field based on detected trigger type
+      trigger_dynamic: getTriggerValue(item)
     };
   });
+  
+  // Log the data with dynamic triggers for debugging
+  if (displayData.length > 0) {
+    console.log('System Resources Timeline - Sample data with dynamic trigger:', displayData[0]);
+  }
 
   return (
     <section className="mb-8">
