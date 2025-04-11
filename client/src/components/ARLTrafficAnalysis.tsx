@@ -39,12 +39,24 @@ const ARLTrafficAnalysis = () => {
     }
   };
   
-  const getChartData = (arlId: number | null) => {
+  const getRPMChartData = (arlId: number | null) => {
     if (arlId === null) return [];
     
     const rpmData = getARLData(arlId, 'rpm');
     
     return rpmData.map(item => ({
+      timestamp: item.timestamp,
+      requestCount: item.requestCount,
+      formattedTime: item.formattedTime
+    }));
+  };
+  
+  const getRPSChartData = (arlId: number | null) => {
+    if (arlId === null) return [];
+    
+    const rpsData = getARLData(arlId, 'rps');
+    
+    return rpsData.map(item => ({
       timestamp: item.timestamp,
       requestCount: item.requestCount,
       formattedTime: item.formattedTime
@@ -115,12 +127,16 @@ const ARLTrafficAnalysis = () => {
               
               {selectedARLId !== null && (
                 <div>
+                  {/* RPM Chart */}
                   <div className="mb-8">
                     <h3 className="text-lg font-medium mb-3">ARL {selectedARLId} - Requests Per Minute</h3>
                     <div className="bg-white rounded-lg shadow p-4">
                       <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={getChartData(selectedARLId)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                          <LineChart 
+                            data={getRPMChartData(selectedARLId)} 
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                          >
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis 
                               dataKey="timestamp" 
@@ -140,6 +156,43 @@ const ARLTrafficAnalysis = () => {
                               stroke="#8884d8" 
                               strokeWidth={2}
                               dot={{ stroke: '#8884d8', strokeWidth: 2, r: 2 }}
+                              activeDot={{ r: 6 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* RPS Chart */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-medium mb-3">ARL {selectedARLId} - Requests Per Second</h3>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart 
+                            data={getRPSChartData(selectedARLId)} 
+                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="timestamp" 
+                              tickFormatter={formatTime}
+                              tick={{ fontSize: 12 }} 
+                            />
+                            <YAxis />
+                            <Tooltip 
+                              formatter={(value: any) => [Number(value).toLocaleString(), 'Requests']}
+                              labelFormatter={formatTime}
+                            />
+                            <Legend />
+                            <Line 
+                              type="monotone" 
+                              dataKey="requestCount" 
+                              name={`ARL ${selectedARLId} RPS`} 
+                              stroke="#82ca9d" 
+                              strokeWidth={2}
+                              dot={{ stroke: '#82ca9d', strokeWidth: 2, r: 2 }}
                               activeDot={{ r: 6 }}
                             />
                           </LineChart>
