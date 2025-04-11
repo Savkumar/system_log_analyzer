@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useARLTrafficData } from '../hooks/useARLTrafficData';
 import ARLTrafficUploader from './ARLTrafficUploader';
 import { ARLData } from '../types';
+import { parseARLRPMData } from '../utils/arlTrafficParser';
 
 const ARLTrafficAnalysis = () => {
   const { 
@@ -65,78 +66,7 @@ const ARLTrafficAnalysis = () => {
     uploadARLRPSData(content);
   };
   
-  const parseARLRPMData = (content: string): ARLData[] => {
-    try {
-      const lines = content.split('\n');
-      const arlDataArray: ARLData[] = [];
-      
-      let currentArlId: number | null = null;
-      let currentRequests: { timestamp: number; requestCount: number; formattedTime: string }[] = [];
-      
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-        
-        // Skip empty lines, comments, and command lines
-        if (!trimmedLine || trimmedLine.startsWith('#')) {
-          continue;
-        }
-        
-        // Check if this is an ARL ID line
-        const arlIdMatch = trimmedLine.match(/^## ARL ID: (\d+)/);
-        if (arlIdMatch) {
-          // If we already have a current ARL ID, save it before starting a new one
-          if (currentArlId !== null && currentRequests.length > 0) {
-            arlDataArray.push({
-              arlId: currentArlId,
-              requests: [...currentRequests]
-            });
-          }
-          
-          // Start tracking a new ARL ID
-          currentArlId = parseInt(arlIdMatch[1], 10);
-          currentRequests = [];
-          continue;
-        }
-        
-        // Parse the request data line
-        // Example format: "10 Apr 21:01 66" (day month time requests)
-        const dataMatch = trimmedLine.match(/^(\d+)\s+(\w+)\s+(\d+):(\d+)\s+(\d+)$/);
-        if (dataMatch && currentArlId !== null) {
-          const [_, day, month, hour, minute, requestCount] = dataMatch;
-          
-          // Convert to timestamp
-          const monthMap: { [key: string]: number } = {
-            'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-            'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-          };
-          
-          const now = new Date();
-          const year = now.getFullYear();
-          const date = new Date(year, monthMap[month], parseInt(day), parseInt(hour), parseInt(minute));
-          const timestamp = Math.floor(date.getTime() / 1000);
-          
-          currentRequests.push({
-            timestamp,
-            requestCount: parseInt(requestCount),
-            formattedTime: `${day} ${month} ${hour}:${minute}`
-          });
-        }
-      }
-      
-      // Don't forget to add the last ARL ID data if it exists
-      if (currentArlId !== null && currentRequests.length > 0) {
-        arlDataArray.push({
-          arlId: currentArlId,
-          requests: [...currentRequests]
-        });
-      }
-      
-      return arlDataArray;
-    } catch (err) {
-      console.error('Error parsing ARL RPM data:', err);
-      return [];
-    }
-  };
+
   
   return (
     <div>

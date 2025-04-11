@@ -13,6 +13,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   let activeRPMLogFilePath = path.resolve(process.cwd(), 'attached_assets/Overall_RPM.txt');
   let activeRPSLogFilePath = path.resolve(process.cwd(), 'attached_assets/Overall_RPS.txt');
   let activeGhostmonLogFilePath = path.resolve(process.cwd(), 'attached_assets/23.210.6.29_ghostmon.log.gz');
+  let activeARLRPMLogFilePath = path.resolve(process.cwd(), 'attached_assets/ARL_RPM.txt');
+  let activeARLRPSLogFilePath = path.resolve(process.cwd(), 'attached_assets/ARL_RPS.txt');
 
   // API endpoint to serve main log file content
   app.get('/api/logs', (req, res) => {
@@ -291,6 +293,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error('Error in ghostmon file upload handler:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  // API endpoints to serve ARL RPM and RPS log file content
+  app.get('/api/arl/rpm', (req, res) => {
+    try {
+      const logContent = fs.readFileSync(activeARLRPMLogFilePath, 'utf8');
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(logContent);
+    } catch (error) {
+      console.error('Error reading ARL RPM log file:', error);
+      res.status(500).send('Error reading ARL RPM log file');
+    }
+  });
+  
+  app.get('/api/arl/rps', (req, res) => {
+    try {
+      const logContent = fs.readFileSync(activeARLRPSLogFilePath, 'utf8');
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(logContent);
+    } catch (error) {
+      console.error('Error reading ARL RPS log file:', error);
+      res.status(500).send('Error reading ARL RPS log file');
+    }
+  });
+
+  // API endpoint to upload ARL RPM log files
+  app.post('/api/arl/upload-rpm', async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ message: 'No files were uploaded' });
+      }
+
+      const logFile = req.files.file as UploadedFile;
+      const tempFilePath = logFile.tempFilePath;
+      
+      try {
+        // Process plain text file
+        const logContent = fs.readFileSync(tempFilePath, 'utf8');
+        
+        // Save the file
+        const decompressedFilePath = path.join('/tmp', `arl_rpm_log_${Date.now()}.txt`);
+        fs.writeFileSync(decompressedFilePath, logContent);
+        
+        // Update the active ARL RPM log file path
+        activeARLRPMLogFilePath = decompressedFilePath;
+        
+        // Return the content directly for client-side processing
+        return res.status(200).send(logContent);
+      } catch (error) {
+        console.error('Error processing ARL RPM log file:', error);
+        return res.status(500).json({ message: 'Error processing ARL RPM log file' });
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    } catch (error) {
+      console.error('Error in ARL RPM file upload handler:', error);
+      return res.status(500).json({ message: 'Server error' });
+    }
+  });
+
+  // API endpoint to upload ARL RPS log files
+  app.post('/api/arl/upload-rps', async (req, res) => {
+    try {
+      if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ message: 'No files were uploaded' });
+      }
+
+      const logFile = req.files.file as UploadedFile;
+      const tempFilePath = logFile.tempFilePath;
+      
+      try {
+        // Process plain text file
+        const logContent = fs.readFileSync(tempFilePath, 'utf8');
+        
+        // Save the file
+        const decompressedFilePath = path.join('/tmp', `arl_rps_log_${Date.now()}.txt`);
+        fs.writeFileSync(decompressedFilePath, logContent);
+        
+        // Update the active ARL RPS log file path
+        activeARLRPSLogFilePath = decompressedFilePath;
+        
+        // Return the content directly for client-side processing
+        return res.status(200).send(logContent);
+      } catch (error) {
+        console.error('Error processing ARL RPS log file:', error);
+        return res.status(500).json({ message: 'Error processing ARL RPS log file' });
+      } finally {
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+      }
+    } catch (error) {
+      console.error('Error in ARL RPS file upload handler:', error);
       return res.status(500).json({ message: 'Server error' });
     }
   });

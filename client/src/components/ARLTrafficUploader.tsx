@@ -56,29 +56,39 @@ const ARLTrafficUploader = ({ onRPMFileUploaded, onRPSFileUploaded }: ARLTraffic
     }
     
     setIsLoading(true);
-    const reader = new FileReader();
     
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        const content = event.target.result as string;
-        
-        if (fileType === 'rpm') {
-          setRPMFileName(file.name);
-          onRPMFileUploaded(content);
-        } else {
-          setRPSFileName(file.name);
-          onRPSFileUploaded(content);
-        }
-        setIsLoading(false);
+    // Create a FormData instance
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Upload to the appropriate endpoint
+    const uploadEndpoint = fileType === 'rpm' ? '/api/arl/upload-rpm' : '/api/arl/upload-rps';
+    
+    fetch(uploadEndpoint, {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Server error: ' + response.statusText);
       }
-    };
-    
-    reader.onerror = () => {
-      setError(`Error reading the ARL ${fileType.toUpperCase()} log file. Make sure it is not corrupted.`);
+      return response.text();
+    })
+    .then(content => {
+      if (fileType === 'rpm') {
+        setRPMFileName(file.name);
+        onRPMFileUploaded(content);
+      } else {
+        setRPSFileName(file.name);
+        onRPSFileUploaded(content);
+      }
       setIsLoading(false);
-    };
-    
-    reader.readAsText(file);
+    })
+    .catch(error => {
+      console.error('Upload error:', error);
+      setError(`Error uploading the ARL ${fileType.toUpperCase()} log file: ${error.message}`);
+      setIsLoading(false);
+    });
   };
   
   const handleFileInputClick = (fileType: 'rpm' | 'rps') => {
