@@ -82,13 +82,34 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
       'reqs': 0
     };
     
+    // Loop through all CRP events and count each trigger type
     crpEvents.forEach(event => {
       const triggeredBy = event.crp_triggered_by?.toLowerCase() || '';
       
+      // Look for trigger keywords in the triggered_by field
       if (triggeredBy.includes('cpu')) triggerCounts.cpu++;
       else if (triggeredBy.includes('flit')) triggerCounts.flits++;
       else if (triggeredBy.includes('mem')) triggerCounts.mem++;
       else if (triggeredBy.includes('req')) triggerCounts.reqs++;
+      
+      // For debug only - log each entry's trigger
+      if (triggeredBy !== 'n/a' && triggeredBy !== '') {
+        console.log('Found trigger in event:', event.crp_rule, triggeredBy);
+      }
+    });
+    
+    // Also check the full dataset for any clear trigger indicators in crp_rule fields
+    filteredData.forEach(entry => {
+      const rule = entry.crp_rule?.toLowerCase() || '';
+      
+      if (rule.includes('cpu')) triggerCounts.cpu++;
+      else if (rule.includes('flit')) triggerCounts.flits++;
+      else if (rule.includes('mem')) triggerCounts.mem++;
+      else if (rule.includes('req')) triggerCounts.reqs++;
+      
+      if (rule !== 'n/a' && rule !== '') {
+        console.log('Found rule hint:', rule);
+      }
     });
     
     // Find the most common trigger type
@@ -97,6 +118,19 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
       if (count > maxCount) {
         maxCount = count;
         primaryTriggerType = type;
+      }
+    }
+    
+    // If we still don't have a trigger type (all counts are 0), try to infer from data patterns
+    if (maxCount === 0) {
+      // Example: check if CPU values are consistently high
+      const highCpuCount = filteredData.filter(entry => entry.cpu_all > 80).length;
+      const highFlitCount = filteredData.filter(entry => entry.flit > 80).length;
+      
+      if (highFlitCount > highCpuCount && highFlitCount > 5) {
+        primaryTriggerType = 'flits';
+      } else if (highCpuCount > 5) {
+        primaryTriggerType = 'cpu';
       }
     }
     
@@ -177,94 +211,104 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
   const usingSyntheticData = crpEvents.length === 0;
   
   // Render combined view chart (all metrics in one)
-  const renderCombinedChart = () => (
-    <div className="h-[500px] mb-6 bg-white rounded-lg shadow p-4">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={dataToUse}
-          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis 
-            dataKey="timestamp" 
-            tickFormatter={formatTime}
-            tick={{ fontSize: 12 }} 
-          />
-          <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
-          <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-          <Tooltip 
-            formatter={(value: any, name: string) => {
-              return [
-                `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'CPU %' || name === 'FLIT %' ? '%' : name.includes('Cycle') ? 'ms' : ''}`, 
-                name
-              ];
-            }}
-            labelFormatter={formatTime}
-          />
-          <Legend />
-          <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
-          
-          {/* CPU Usage */}
-          <Line 
-            yAxisId="right"
-            type="monotone" 
-            dataKey="cpu_all" 
-            name="CPU %" 
-            stroke="#d95649" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          
-          {/* FLIT Percentage */}
-          <Line 
-            yAxisId="right"
-            type="monotone" 
-            dataKey="flit" 
-            name="FLIT %" 
-            stroke="#3644d9" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          
-          {/* Manager Cycle */}
-          <Line 
-            yAxisId="left"
-            type="monotone" 
-            dataKey="avg_mgr_cycle" 
-            name="Manager Cycle (ms)" 
-            stroke="#45aa44" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          
-          {/* CRP Metrics */}
-          <Line 
-            yAxisId="right"
-            type="monotone" 
-            dataKey="crp_deny_pct" 
-            name="CRP Deny %" 
-            stroke="#8884d8" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-          <Line 
-            yAxisId="right"
-            type="monotone" 
-            dataKey="crp_trigger_pct" 
-            name="CRP Trigger %" 
-            stroke="#e6a144" 
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
+  const renderCombinedChart = () => {
+    // Calculate the trigger type name for combined view
+    const triggerTypeName = primaryTriggerType === 'cpu' ? 'CPU Trigger %' : 
+                           primaryTriggerType === 'flits' ? 'FLIT Trigger %' :
+                           primaryTriggerType === 'mem' ? 'Memory Trigger %' :
+                           primaryTriggerType === 'reqs' ? 'Request Trigger %' :
+                           'CRP Trigger %';
+    
+    return (
+      <div className="h-[500px] mb-6 bg-white rounded-lg shadow p-4">
+        <h3 className="text-lg font-medium mb-2">Combined System Resources with {triggerTypeName}</h3>
+        <ResponsiveContainer width="100%" height="90%">
+          <LineChart
+            data={dataToUse}
+            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="timestamp" 
+              tickFormatter={formatTime}
+              tick={{ fontSize: 12 }} 
+            />
+            <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
+            <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+            <Tooltip 
+              formatter={(value: any, name: string) => {
+                return [
+                  `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'CPU %' || name === 'FLIT %' ? '%' : name.includes('Cycle') ? 'ms' : ''}`, 
+                  name
+                ];
+              }}
+              labelFormatter={formatTime}
+            />
+            <Legend />
+            <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
+            
+            {/* CPU Usage */}
+            <Line 
+              yAxisId="right"
+              type="monotone" 
+              dataKey="cpu_all" 
+              name="CPU %" 
+              stroke="#d95649" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+            
+            {/* FLIT Percentage */}
+            <Line 
+              yAxisId="right"
+              type="monotone" 
+              dataKey="flit" 
+              name="FLIT %" 
+              stroke="#3644d9" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+            
+            {/* Manager Cycle */}
+            <Line 
+              yAxisId="left"
+              type="monotone" 
+              dataKey="avg_mgr_cycle" 
+              name="Manager Cycle (ms)" 
+              stroke="#45aa44" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+            
+            {/* CRP Metrics */}
+            <Line 
+              yAxisId="right"
+              type="monotone" 
+              dataKey="crp_deny_pct" 
+              name="CRP Deny %" 
+              stroke="#8884d8" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+            <Line 
+              yAxisId="right"
+              type="monotone" 
+              dataKey="crp_trigger_pct" 
+              name={triggerTypeName} 
+              stroke="#e6a144" 
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
   
   // Render separate charts for each metric
   const renderSeparateCharts = () => {
@@ -275,11 +319,18 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     // Select which metrics to show based on detected trigger type
     const triggerDataKey = "crp_trigger_pct";
     
+    // Calculate the trigger type name for display in chart titles
+    const triggerTypeName = primaryTriggerType === 'cpu' ? 'CPU Trigger %' : 
+                           primaryTriggerType === 'flits' ? 'FLIT Trigger %' :
+                           primaryTriggerType === 'mem' ? 'Memory Trigger %' :
+                           primaryTriggerType === 'reqs' ? 'Request Trigger %' :
+                           'CRP Trigger %';
+    
     return (
       <div>
         {/* 1. CPU Usage - Trigger % Chart (Always show as first chart) */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">1. CPU Usage - CRP Trigger % vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">1. CPU Usage - {triggerTypeName} vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -296,7 +347,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`, 
-                      name.includes('cpu_all') ? 'CPU Usage' : 'CRP Trigger %'
+                      name.includes('cpu_all') ? 'CPU Usage' : triggerTypeName
                     ];
                   }}
                   labelFormatter={formatTime}
@@ -315,7 +366,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Line 
                   type="monotone" 
                   dataKey={triggerDataKey} 
-                  name="CRP Trigger %" 
+                  name={triggerTypeName} 
                   stroke="#e6a144" 
                   strokeWidth={2}
                   dot={false}
@@ -328,7 +379,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         
         {/* 2. FLIT Percentage - Trigger % Chart */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">2. FLIT Percentage - CRP Trigger % vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">2. FLIT Percentage - {triggerTypeName} vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -345,7 +396,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'FLIT %' ? '%' : ''}`, 
-                      name === 'flit' ? 'FLIT %' : 'CRP Trigger %'
+                      name === 'flit' ? 'FLIT %' : triggerTypeName
                     ];
                   }}
                   labelFormatter={formatTime}
@@ -364,7 +415,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Line 
                   type="monotone" 
                   dataKey={triggerDataKey} 
-                  name="CRP Trigger %" 
+                  name={triggerTypeName} 
                   stroke="#e6a144" 
                   strokeWidth={2}
                   dot={false}
@@ -377,7 +428,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         
         {/* 3. Manager Cycle - Trigger % Chart */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">3. Manager Cycle (ms) - CRP Trigger % vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">3. Manager Cycle (ms) - {triggerTypeName} vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -396,7 +447,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                   formatter={(value: any, name: string) => {
                     return [
                       `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : name.includes('Cycle') ? 'ms' : ''}`, 
-                      name.includes('avg_mgr_cycle') ? 'Manager Cycle (ms)' : 'CRP Trigger %'
+                      name.includes('avg_mgr_cycle') ? 'Manager Cycle (ms)' : triggerTypeName
                     ];
                   }}
                   labelFormatter={formatTime}
@@ -417,7 +468,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                   yAxisId="right"
                   type="monotone" 
                   dataKey={triggerDataKey} 
-                  name="CRP Trigger %" 
+                  name={triggerTypeName} 
                   stroke="#e6a144" 
                   strokeWidth={2}
                   dot={false}
@@ -430,7 +481,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         
         {/* 4. Requests - Trigger % Chart */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">4. HTTP/HTTPS Accepts - CRP Trigger % vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">4. HTTP/HTTPS Accepts - {triggerTypeName} vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -449,7 +500,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                   formatter={(value: any, name: string) => {
                     return [
                       `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`, 
-                      name
+                      name === triggerTypeName ? triggerTypeName : name
                     ];
                   }}
                   labelFormatter={formatTime}
@@ -480,7 +531,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                   yAxisId="right"
                   type="monotone" 
                   dataKey={triggerDataKey} 
-                  name="CRP Trigger %" 
+                  name={triggerTypeName} 
                   stroke="#e6a144" 
                   strokeWidth={2}
                   dot={false}
@@ -493,7 +544,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
         
         {/* 5. Deny Percentage vs Trigger Percentage */}
         <div className="h-64 mb-6">
-          <h3 className="text-lg font-medium mb-2">5. CRP Deny % - CRP Trigger % vs Time</h3>
+          <h3 className="text-lg font-medium mb-2">5. CRP Deny % - {triggerTypeName} vs Time</h3>
           <div className="bg-white rounded-lg shadow p-4">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -508,7 +559,10 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 />
                 <YAxis domain={[0, 'dataMax']} />
                 <Tooltip 
-                  formatter={(value: any, name: string) => [`${Number(value).toLocaleString()}%`, name]}
+                  formatter={(value: any, name: string) => [
+                    `${Number(value).toLocaleString()}%`, 
+                    name.includes('Deny') ? 'CRP Deny %' : triggerTypeName
+                  ]}
                   labelFormatter={formatTime}
                 />
                 <Legend />
@@ -516,7 +570,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Line 
                   type="monotone" 
                   dataKey="crp_deny_pct" 
-                  name="Deny %" 
+                  name="CRP Deny %" 
                   stroke="#8884d8" 
                   strokeWidth={2}
                   dot={false}
@@ -525,7 +579,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <Line 
                   type="monotone" 
                   dataKey="crp_trigger_pct" 
-                  name="Trigger %" 
+                  name={triggerTypeName} 
                   stroke="#e6a144" 
                   strokeWidth={2}
                   dot={false}
