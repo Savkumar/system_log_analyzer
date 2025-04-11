@@ -100,7 +100,6 @@ const LogFileUploader = ({ onFileUploaded }: LogFileUploaderProps) => {
   return (
     <div className="mb-8">
       <h2 className="text-xl font-semibold mb-4 flex items-center">
-        <i className="ri-upload-cloud-line mr-2 text-primary"></i>
         Upload Gzipped Log File
       </h2>
       
@@ -113,7 +112,7 @@ const LogFileUploader = ({ onFileUploaded }: LogFileUploaderProps) => {
         onDrop={handleDrop}
       >
         <div className="flex flex-col items-center">
-          <i className="ri-file-zip-line text-4xl text-gray-400 mb-4"></i>
+          <div className="text-4xl text-gray-400 mb-4">📦</div>
           
           {file ? (
             <div className="mb-4">
