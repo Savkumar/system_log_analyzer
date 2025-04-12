@@ -124,26 +124,36 @@ const SystemResourcesChart = ({
   };
   
   // Filter data for the selected time range
-  // Get the appropriate trigger data based on detected trigger type
+  // Get the appropriate trigger threshold value based on detected trigger type
   const getTriggerValue = (item: LogData) => {
-    switch (triggerType) {
-      case 'flits':
-        // Use FLIT value if detected as FLIT trigger
-        // We might need to scale the value if it's not already in percentage
-        return item.flit;
-      case 'mem':
-        // Memory-based trigger - would need actual memory metric 
-        // This is a fallback to CPU trigger if actual memory trigger data not available
-        return item.triggered_by_cpu;
-      case 'reqs':
-        // Request-based trigger - would need actual request metric
-        // This is a fallback to CPU trigger if actual request trigger data not available
-        return item.triggered_by_cpu;
-      case 'cpu':
-      default:
-        // Default to CPU trigger
-        return item.triggered_by_cpu;
+    // Find the closest overload event to this data point
+    const matchingEvents = overloadEvents.filter(event => 
+      // Look for events within 1 second of the current data point
+      Math.abs(event.timestamp - item.timestamp) < 1
+    );
+    
+    // If we found matching events, use their trigger threshold
+    if (matchingEvents.length > 0) {
+      // Sort by proximity to get the closest event
+      matchingEvents.sort((a, b) => 
+        Math.abs(a.timestamp - item.timestamp) - Math.abs(b.timestamp - item.timestamp)
+      );
+      
+      const closestEvent = matchingEvents[0];
+      
+      // Use the trigger value from the event based on the detected type
+      if (closestEvent.triggered_by_cpu && closestEvent.triggered_by_cpu > 0) {
+        return closestEvent.triggered_by_cpu;
+      }
     }
+    
+    // If no matching events or no specific trigger data found, check our data point
+    if (item.triggered_by_cpu && item.triggered_by_cpu > 0) {
+      return item.triggered_by_cpu;
+    }
+    
+    // If we still don't have a value, use a fallback value of 0
+    return 0;
   };
 
   // Create data with dynamic trigger values
