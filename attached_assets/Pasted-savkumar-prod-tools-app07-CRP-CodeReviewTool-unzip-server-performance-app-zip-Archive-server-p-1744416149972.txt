@@ -1,0 +1,154 @@
+savkumar@prod-tools-app07:~/CRP/CodeReviewTool$ unzip server-performance-app.zip 
+Archive:  server-performance-app.zip
+  inflating: server.js               
+   creating: dist/
+   creating: dist/public/
+  inflating: dist/public/index.html  
+   creating: dist/public/assets/
+  inflating: dist/public/assets/index-dX2s7pql.css  
+  inflating: dist/public/assets/index-B6I1YSSQ.js  
+  inflating: dist/index.js           
+replace package.json? [y]es, [n]o, [A]ll, [N]one, [r]ename: y
+  inflating: package.json            
+replace README.md? [y]es, [n]o, [A]ll, [N]one, [r]ename: y
+  inflating: README.md               
+savkumar@prod-tools-app07:~/CRP/CodeReviewTool$ npm install
+loadDep:express-fileuploa ▐ ╢█████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░╟
+loadDep:busboy → request  ▀ ╢███████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░╟
+loadDep:streamsearch → re ▐ ╢███████████████████████████████████████████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░╟
+server-performance-analysis@1.0.0 /u0/savkumar/CRP/CodeReviewTool
+├─┬ express@4.21.2 
+│ ├─┬ accepts@1.3.8 
+│ │ ├─┬ mime-types@2.1.35 
+│ │ │ └── mime-db@1.52.0 
+│ │ └── negotiator@0.6.3 
+│ ├── array-flatten@1.1.1 
+│ ├─┬ body-parser@1.20.3 
+│ │ ├── bytes@3.1.2 
+│ │ ├── destroy@1.2.0 
+│ │ ├─┬ iconv-lite@0.4.24 
+│ │ │ └── safer-buffer@2.1.2 
+│ │ ├── raw-body@2.5.2 
+│ │ └── unpipe@1.0.0 
+│ ├── content-disposition@0.5.4 
+│ ├── content-type@1.0.5 
+│ ├── cookie@0.7.1 
+│ ├── cookie-signature@1.0.6 
+│ ├─┬ debug@2.6.9 
+│ │ └── ms@2.0.0 
+│ ├── depd@2.0.0 
+│ ├── encodeurl@2.0.0 
+│ ├── escape-html@1.0.3 
+│ ├── etag@1.8.1 
+│ ├── finalhandler@1.3.1 
+│ ├── fresh@0.5.2 
+│ ├─┬ http-errors@2.0.0 
+│ │ ├── inherits@2.0.4 
+│ │ └── toidentifier@1.0.1 
+│ ├── merge-descriptors@1.0.3 
+│ ├── methods@1.1.2 
+│ ├─┬ on-finished@2.4.1 
+│ │ └── ee-first@1.1.1 
+│ ├── parseurl@1.3.3 
+│ ├── path-to-regexp@0.1.12 
+│ ├─┬ proxy-addr@2.0.7 
+│ │ ├── forwarded@0.2.0 
+│ │ └── ipaddr.js@1.9.1 
+│ ├─┬ qs@6.13.0 
+│ │ └─┬ side-channel@1.1.0 
+│ │   ├── es-errors@1.3.0 
+│ │   ├── object-inspect@1.13.4 
+│ │   ├── side-channel-list@1.0.0 
+│ │   ├─┬ side-channel-map@1.0.1 
+│ │   │ ├─┬ call-bound@1.0.4 
+│ │   │ │ └── call-bind-apply-helpers@1.0.2 
+│ │   │ └─┬ get-intrinsic@1.3.0 
+│ │   │   ├── es-define-property@1.0.1 
+│ │   │   ├── es-object-atoms@1.1.1 
+│ │   │   ├── function-bind@1.1.2 
+│ │   │   ├─┬ get-proto@1.0.1 
+│ │   │   │ └── dunder-proto@1.0.1 
+│ │   │   ├── gopd@1.2.0 
+│ │   │   ├── has-symbols@1.1.0 
+│ │   │   ├── hasown@2.0.2 
+│ │   │   └── math-intrinsics@1.1.0 
+│ │   └── side-channel-weakmap@1.0.2 
+│ ├── range-parser@1.2.1 
+│ ├── safe-buffer@5.2.1 
+│ ├─┬ send@0.19.0 
+│ │ ├── encodeurl@1.0.2 
+│ │ ├── mime@1.6.0 
+│ │ └── ms@2.1.3 
+│ ├── serve-static@1.16.2 
+│ ├── setprototypeof@1.2.0 
+│ ├── statuses@2.0.1 
+│ ├─┬ type-is@1.6.18 
+│ │ └── media-typer@0.3.0 
+│ ├── utils-merge@1.0.1 
+│ └── vary@1.1.2 
+└─┬ express-fileupload@1.5.1 
+  └─┬ busboy@1.6.0 
+    └── streamsearch@1.1.0 
+
+npm WARN server-performance-analysis@1.0.0 No repository field.
+npm WARN server-performance-analysis@1.0.0 No license field.
+savkumar@prod-tools-app07:~/CRP/CodeReviewTool$ npm start
+
+> server-performance-analysis@1.0.0 start /u0/savkumar/CRP/CodeReviewTool
+> node server.js
+
+/u0/savkumar/CRP/CodeReviewTool/node_modules/busboy/lib/utils.js:469
+    } catch {}
+            ^
+
+SyntaxError: Unexpected token {
+    at createScript (vm.js:80:10)
+    at Object.runInThisContext (vm.js:139:10)
+    at Module._compile (module.js:616:28)
+    at Object.Module._extensions..js (module.js:663:10)
+    at Module.load (module.js:565:32)
+    at tryModuleLoad (module.js:505:12)
+    at Function.Module._load (module.js:497:3)
+    at Module.require (module.js:596:17)
+    at require (internal/module.js:11:18)
+    at Object.<anonymous> (/u0/savkumar/CRP/CodeReviewTool/node_modules/busboy/lib/index.js:3:30)
+
+npm ERR! Linux 4.15.0-234-generic
+npm ERR! argv "/usr/bin/node" "/usr/bin/npm" "start"
+npm ERR! node v8.10.0
+npm ERR! npm  v3.5.2
+npm ERR! code ELIFECYCLE
+npm ERR! server-performance-analysis@1.0.0 start: `node server.js`
+npm ERR! Exit status 1
+npm ERR! 
+npm ERR! Failed at the server-performance-analysis@1.0.0 start script 'node server.js'.
+npm ERR! Make sure you have the latest version of node.js and npm installed.
+npm ERR! If you do, this is most likely a problem with the server-performance-analysis package,
+npm ERR! not with npm itself.
+npm ERR! Tell the author that this fails on your system:
+npm ERR!     node server.js
+npm ERR! You can get information on how to open an issue for this project with:
+npm ERR!     npm bugs server-performance-analysis
+npm ERR! Or if that isn't available, you can get their info via:
+npm ERR!     npm owner ls server-performance-analysis
+npm ERR! There is likely additional logging output above.
+
+npm ERR! Please include the following file with any support request:
+npm ERR!     /u0/savkumar/CRP/CodeReviewTool/npm-debug.log
+savkumar@prod-tools-app07:~/CRP/CodeReviewTool$ node server.js
+/u0/savkumar/CRP/CodeReviewTool/node_modules/busboy/lib/utils.js:469
+    } catch {}
+            ^
+
+SyntaxError: Unexpected token {
+    at createScript (vm.js:80:10)
+    at Object.runInThisContext (vm.js:139:10)
+    at Module._compile (module.js:616:28)
+    at Object.Module._extensions..js (module.js:663:10)
+    at Module.load (module.js:565:32)
+    at tryModuleLoad (module.js:505:12)
+    at Function.Module._load (module.js:497:3)
+    at Module.require (module.js:596:17)
+    at require (internal/module.js:11:18)
+    at Object.<anonymous> (/u0/savkumar/CRP/CodeReviewTool/node_modules/busboy/lib/index.js:3:30)
+savkumar@prod-tools-app07:~/CRP/CodeReviewTool$ 
