@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { OverloadEvent } from '../types';
 import { formatTimestamp } from '../utils/logParser';
 
@@ -6,8 +7,15 @@ interface OverloadEventsTableProps {
 }
 
 const OverloadEventsTable = ({ overloadEvents }: OverloadEventsTableProps) => {
+  const [page, setPage] = useState(1);
+  const pageSize = 10; // 10 events per page
+  
   // Sort events by timestamp descending (most recent first)
   const sortedEvents = [...overloadEvents].sort((a, b) => b.timestamp - a.timestamp);
+  
+  // Paginate the data
+  const totalPages = Math.ceil(sortedEvents.length / pageSize);
+  const displayEvents = sortedEvents.slice((page - 1) * pageSize, page * pageSize);
   
   return (
     <section className="mb-8">
@@ -29,7 +37,7 @@ const OverloadEventsTable = ({ overloadEvents }: OverloadEventsTableProps) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedEvents.map((event, index) => (
+              {displayEvents.map((event, index) => (
                 <tr key={index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                     {formatTimestamp(event.timestamp)}
@@ -67,7 +75,31 @@ const OverloadEventsTable = ({ overloadEvents }: OverloadEventsTableProps) => {
         </div>
         <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-700">
-            Showing <span className="font-medium">{overloadEvents.length}</span> events
+            Showing <span className="font-medium">{Math.min(pageSize, displayEvents.length)}</span> of{' '}
+            <span className="font-medium">{sortedEvents.length}</span> events
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className={`px-3 py-1 border border-gray-300 rounded-md text-sm ${
+                page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Previous
+            </button>
+            <span className="px-3 py-1 border border-gray-300 rounded-md text-sm bg-primary text-white">
+              {page}
+            </span>
+            <button 
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
+              className={`px-3 py-1 border border-gray-300 rounded-md text-sm ${
+                page === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Next
+            </button>
           </div>
           <div>
             <button className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
