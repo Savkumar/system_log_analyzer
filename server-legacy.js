@@ -25,8 +25,9 @@ app.get('/', (req, res) => {
 // Create HTTP server
 const server = http.createServer(app);
 
-// Start the server
-server.listen(PORT, () => {
+// Start the server - listen on all interfaces (0.0.0.0)
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server Performance Analysis app running on port ${PORT}`);
-  console.log(`Access the application at: http://localhost:${PORT}`);
+  console.log(`Access the application at: http://0.0.0.0:${PORT}`);
+  console.log(`You can also access it using your server's IP address: http://SERVER_IP:${PORT}`);
 });
