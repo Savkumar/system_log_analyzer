@@ -49,34 +49,26 @@ export const parseLogFile = async (logContent: string): Promise<{
     }
     
     // Process OverloadManager processMainLoop line
-    // Check for both CPU and FLIT triggers. Lookout for "triggered by" patterns
+    // Check for any type of trigger (cpu, flit, memory, etc.)
     if (line.includes('OverloadManager::processMainLoop()')) {
       const timestampMatch = line.match(/^(\d+\.\d+)/);
       
-      // Try to find the trigger type and value
-      let triggerType = 'cpu';
+      // Generic pattern to capture any trigger type and value
+      const triggerMatch = line.match(/triggered by ([^:]+):([0-9.]+)/i);
+      let triggerType = 'unknown';
       let triggerValue = 0;
       
-      // Check for CPU trigger
-      const cpuTriggerMatch = line.match(/triggered by cpu:([0-9.]+)/);
-      if (cpuTriggerMatch) {
-        triggerType = 'cpu';
-        triggerValue = parseFloat(cpuTriggerMatch[1]) * 100; // Scale to percentage
-      }
-      
-      // Check for FLIT trigger
-      const flitTriggerMatch = line.match(/triggered by flit:([0-9.]+)/);
-      if (flitTriggerMatch) {
-        triggerType = 'flit';
-        triggerValue = parseFloat(flitTriggerMatch[1]) * 100; // Scale to percentage
+      if (triggerMatch) {
+        triggerType = triggerMatch[1]; // Preserve the original text (e.g., "flits", "cpu", "memory")
+        triggerValue = parseFloat(triggerMatch[2]) * 100; // Scale to percentage
       }
       
       // Log for debugging
-      if (triggerType && triggerValue > 0) {
+      if (triggerType !== 'unknown' && triggerValue > 0) {
         console.log(`Detected ${triggerType} trigger: ${triggerValue}%`);
       }
       
-      if (timestampMatch && (cpuTriggerMatch || flitTriggerMatch)) {
+      if (timestampMatch && triggerMatch) {
         const timestamp = parseFloat(timestampMatch[1]);
         const triggerPercentage = triggerValue; // Already scaled to percentage
         
@@ -286,10 +278,10 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
   });
   
   // Process processMainLoop lines to get triggered by information
-  // Look for both CPU and FLIT triggers
+  // Look for any type of trigger (cpu, flit, memory, etc.)
   const mainLoopLines = lines.filter(line => 
     line.includes('processMainLoop()') && 
-    (line.includes('triggered by cpu:') || line.includes('triggered by flit:'))
+    line.includes('triggered by')
   );
   
   // Debug logging for our filter
@@ -298,41 +290,68 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
     console.log(`[parseDetailedLogEntries] Sample line: ${mainLoopLines[0]}`);
   }
   
+  // Define an interface for the trigger info
+  interface TriggerInfo {
+    triggerType: string;
+    triggerValue: number;
+  }
+  
+  // Create a map of timestamps to processMainLoop info with proper typing
+  const triggerInfoByTimestamp = new Map<number, TriggerInfo>();
+  
   mainLoopLines.forEach(line => {
     const timestampMatch = line.match(/^(\d+\.\d+)/);
+    if (!timestampMatch) return;
+    
+    const timestamp = parseFloat(timestampMatch[1]);
     let triggerType = 'unknown';
     let triggerValue = 0;
     
-    // Check for CPU trigger
-    const cpuTriggerMatch = line.match(/triggered by cpu:([0-9.]+)/);
-    if (cpuTriggerMatch) {
-      triggerType = 'cpu';
-      triggerValue = parseFloat(cpuTriggerMatch[1]);
+    // Generic pattern to capture any trigger type and value - works with singular and plural forms
+    // "triggered by flits:0.965" or "triggered by cpu:0.85" etc.
+    const triggerMatch = line.match(/triggered by ([^:]+):([0-9.]+)/i);
+    if (triggerMatch) {
+      triggerType = triggerMatch[1]; // Preserve the original text (e.g., "flits", "cpu", "memory")
+      triggerValue = parseFloat(triggerMatch[2]);
+      
+      // Store trigger info by timestamp for later matching
+      triggerInfoByTimestamp.set(timestamp, {
+        triggerType,
+        triggerValue
+      });
+      
+      // Debug log
+      console.log(`[parseDetailedLogEntries] Stored trigger info for ${timestamp}: ${triggerType} = ${triggerValue}`);
     }
+  });
+  
+  // Now associate the triggers with CRP events based on the best possible match
+  crpEvents.forEach(event => {
+    const eventTimestamp = event.timestamp;
     
-    // Check for FLIT trigger
-    const flitTriggerMatch = line.match(/triggered by flit:([0-9.]+)/);
-    if (flitTriggerMatch) {
-      triggerType = 'flit';
-      triggerValue = parseFloat(flitTriggerMatch[1]);
-    }
+    // Try to find an exact match first
+    let bestMatch = null;
+    let bestTimeDiff = Infinity;
     
-    if (timestampMatch && triggerType !== 'unknown') {
-      const timestamp = parseFloat(timestampMatch[1]);
+    // Find the closest trigger info for this event - using Array.from to avoid TypeScript downlevelIteration issues
+    Array.from(triggerInfoByTimestamp.entries()).forEach((entry) => {
+      const triggerTimestamp = entry[0]; // First element is the key (timestamp)
+      const triggerInfo = entry[1] as TriggerInfo; // Second element is the value (TriggerInfo)
       
-      // Find the corresponding CRP event (should be very close in time)
-      const matchingEvent = crpEvents.find(e => 
-        Math.abs(e.timestamp - Math.floor(timestamp)) < 1
-      );
+      const timeDiff = Math.abs(eventTimestamp - triggerTimestamp);
       
-      // Debug log to see which events we're matching
-      console.log(`[parseDetailedLogEntries] Trigger at ${timestamp}: ${triggerType} = ${triggerValue}`);
-      console.log(`[parseDetailedLogEntries] Matching event found: ${matchingEvent ? 'yes' : 'no'}`);
-      
-      if (matchingEvent) {
-        matchingEvent.crp_triggered_by = triggerType;
-        matchingEvent.crp_triggered_pct = triggerValue * 100; // Scale to percentage
+      // Look for the closest timestamp (within a reasonable window)
+      if (timeDiff < bestTimeDiff && timeDiff < 1) { // Within 1 second
+        bestTimeDiff = timeDiff;
+        bestMatch = triggerInfo;
       }
+    });
+    
+    // If a match was found, update the event
+    if (bestMatch) {
+      event.crp_triggered_by = bestMatch.triggerType;
+      event.crp_triggered_pct = bestMatch.triggerValue * 100; // Scale to percentage
+      console.log(`[parseDetailedLogEntries] Matched event at ${eventTimestamp} with trigger: ${bestMatch.triggerType}`);
     }
   });
   

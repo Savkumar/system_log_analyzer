@@ -15,27 +15,30 @@ const DetailedLogTable = ({ data, showRange }: DetailedLogTableProps) => {
   const getDataForRange = (range: TimeRange, data: DetailedLogEntry[]) => {
     if (data.length === 0) return data;
     
+    // For 'all' range, return all data
+    if (range === 'all') return data;
+    
+    // Get the latest timestamp in the data
+    const latestData = [...data].sort((a, b) => b.timestamp - a.timestamp)[0];
+    const latestTimestamp = latestData ? latestData.timestamp : 0;
+    
+    // Calculate cutoff time based on range
+    let secondsCutoff = 0;
     switch (range) {
-      case '5s':
-        return data.slice(-Math.min(5, data.length));
-      case '10s':
-        return data.slice(-Math.min(10, data.length));
-      case '15s':
-        return data.slice(-Math.min(15, data.length));
-      case '30s':
-        return data.slice(-Math.min(30, data.length));
-      case '1m':
-        return data.slice(-Math.min(60, data.length));
-      case '10m':
-        return data.slice(-Math.min(600, data.length));
-      case '30m':
-        return data.slice(-Math.min(1800, data.length));
-      case '1h':
-        return data.slice(-Math.min(3600, data.length));
-      case 'all':
-      default:
-        return data;
+      case '5s': secondsCutoff = 5; break;
+      case '10s': secondsCutoff = 10; break;
+      case '15s': secondsCutoff = 15; break;
+      case '30s': secondsCutoff = 30; break;
+      case '1m': secondsCutoff = 60; break;
+      case '10m': secondsCutoff = 600; break;
+      case '30m': secondsCutoff = 1800; break;
+      case '1h': secondsCutoff = 3600; break;
+      default: return data;
     }
+    
+    // Filter data to include only entries within the time range
+    const cutoffTimestamp = latestTimestamp - secondsCutoff;
+    return data.filter(entry => entry.timestamp >= cutoffTimestamp);
   };
   
   // Filter data based on time range selection
@@ -114,10 +117,18 @@ const DetailedLogTable = ({ data, showRange }: DetailedLogTableProps) => {
                     {entry.crp_metrics_reqs}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono">
-                    {entry.crp_triggered_by !== 'N/A' ? entry.crp_triggered_by : '0'}
+                    {entry.crp_triggered_by !== 'N/A' ? (
+                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full bg-orange-100 text-orange-800">
+                        {entry.crp_triggered_by}
+                      </span>
+                    ) : '0'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono">
-                    {entry.crp_triggered_pct > 0 ? entry.crp_triggered_pct.toFixed(3) : '0'}
+                    {entry.crp_triggered_pct > 0 ? (
+                      <span className="font-semibold">
+                        {entry.crp_triggered_pct.toFixed(1)}%
+                      </span>
+                    ) : '0'}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono">
                     {entry.time_difference > 0 ? entry.time_difference : '0'}
