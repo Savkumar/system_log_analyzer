@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import fileUpload from "express-fileupload";
+import portfinder from "portfinder";
 
 const app = express();
 app.use(express.json());
@@ -64,13 +65,29 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Serve the app on port 3000 instead of 5000 to avoid ENOTSUP errors
-  const port = 3000;
-  server.listen({
-    port,
-    host: "localhost"
-    // reusePort option removed to avoid potential compatibility issues
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  // Find an available port starting from a base port
+  // Configure portfinder
+  portfinder.basePort = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+  portfinder.highestPort = 9000;
+
+  try {
+    const port = await portfinder.getPortPromise();
+    server.listen({
+      port,
+      host: "localhost"
+      // reusePort option removed to avoid potential compatibility issues
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+  } catch (err) {
+    console.error('Failed to find an available port:', err);
+    // Fallback to a high port as last resort
+    const fallbackPort = 9876;
+    server.listen({
+      port: fallbackPort,
+      host: "localhost"
+    }, () => {
+      log(`serving on fallback port ${fallbackPort}`);
+    });
+  }
 })();
