@@ -26,6 +26,12 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
     return new Date(timestamp * 1000).toLocaleTimeString();
   };
   
+  // Format timestamps with date and time for separate views
+  const formatDateTime = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  };
+  
   // Filter data based on time range selection
   const getFilteredData = () => {
     if (!data || data.length === 0) return [];
@@ -338,19 +344,22 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={formatDateTime}
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis domain={[0, 'dataMax']} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: any, name: string) => {
-                    return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`, 
+                    return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`,
                       name.includes('cpu_all') ? 'CPU Usage' : triggerTypeName
                     ];
                   }}
-                  labelFormatter={formatTime}
+                  labelFormatter={formatDateTime}
                 />
                 <Legend />
                 <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
@@ -387,19 +396,22 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={formatDateTime}
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis domain={[0, 'dataMax']} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: any, name: string) => {
-                    return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'FLIT %' ? '%' : ''}`, 
+                    return [`${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') || name === 'FLIT %' ? '%' : ''}`,
                       name === 'flit' ? 'FLIT %' : triggerTypeName
                     ];
                   }}
-                  labelFormatter={formatTime}
+                  labelFormatter={formatDateTime}
                 />
                 <Legend />
                 <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
@@ -436,21 +448,24 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={formatDateTime}
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
                 <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: any, name: string) => {
                     return [
-                      `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : name.includes('Cycle') ? 'ms' : ''}`, 
+                      `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : name.includes('Cycle') ? 'ms' : ''}`,
                       name.includes('avg_mgr_cycle') ? 'Manager Cycle (ms)' : triggerTypeName
                     ];
                   }}
-                  labelFormatter={formatTime}
+                  labelFormatter={formatDateTime}
                 />
                 <Legend />
                 <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
@@ -489,21 +504,24 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={formatDateTime}
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis yAxisId="left" orientation="left" domain={[0, 'dataMax']} />
                 <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: any, name: string) => {
                     return [
-                      `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`, 
+                      `${Number(value).toLocaleString()}${name.includes('pct') || name.includes('Trigger') ? '%' : ''}`,
                       name === triggerTypeName ? triggerTypeName : name
                     ];
                   }}
-                  labelFormatter={formatTime}
+                  labelFormatter={formatDateTime}
                 />
                 <Legend />
                 <ReferenceLine y={100} yAxisId="right" stroke="red" strokeDasharray="3 3" />
@@ -552,18 +570,21 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="timestamp" 
-                  tickFormatter={formatTime}
-                  tick={{ fontSize: 12 }} 
+                <XAxis
+                  dataKey="timestamp"
+                  tickFormatter={formatDateTime}
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
                 />
                 <YAxis domain={[0, 'dataMax']} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: any, name: string) => [
-                    `${Number(value).toLocaleString()}%`, 
+                    `${Number(value).toLocaleString()}%`,
                     name.includes('Deny') ? 'CRP Deny %' : triggerTypeName
                   ]}
-                  labelFormatter={formatTime}
+                  labelFormatter={formatDateTime}
                 />
                 <Legend />
                 <ReferenceLine y={100} stroke="red" strokeDasharray="3 3" />
@@ -678,7 +699,7 @@ const CRPTimelines = ({ data, showRange, setShowRange }: CRPTimelinesProps) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {crpEvents.slice(0, 5).map((event, index) => (
                     <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{formatTime(event.timestamp)}</td>
+                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{formatDateTime(event.timestamp)}</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_rule}</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_arlid || 'N/A'}</td>
                       <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-900">{event.crp_triggered_by || 'Unknown'}</td>

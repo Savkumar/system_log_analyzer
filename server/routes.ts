@@ -1,6 +1,7 @@
-import type { Express, Request } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { insertReportSchema } from "@shared/schema";
 import fs from 'fs';
 import path from 'path';
 import { UploadedFile } from 'express-fileupload';
@@ -317,6 +318,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error reading ARL RPS log file:', error);
       res.status(500).send('Error reading ARL RPS log file');
+    }
+  });
+
+  // --- REPORT SHARING API ENDPOINTS ---
+
+  // Create a new report share
+  app.post('/api/reports', async (req, res) => {
+    try {
+      const { shareId, data, description } = req.body;
+      
+      // Validate request data
+      if (!shareId || !data) {
+        return res.status(400).json({ message: 'Missing required fields: shareId and data' });
+      }
+
+      // Initialize storage if needed
+      await storage.init();
+
+      // Save the report data to SQLite
+      const report = await storage.createReport({
+        shareId,
+        data,
+        description: description || null,
+        userId: null // User authentication not implemented yet
+      });
+
+      return res.status(201).json({
+        message: 'Report saved successfully',
+        shareId: report.shareId,
+        id: report.id
+      });
+    } catch (error) {
+      console.error('Error saving report:', error);
+      return res.status(500).json({ message: 'Error saving report data' });
+    }
+  });
+
+  // Get a shared report by its shareId
+  app.get('/api/reports/:shareId', async (req, res) => {
+    try {
+      const { shareId } = req.params;
+      
+      // Initialize storage if needed
+      await storage.init();
+
+      // Retrieve the report from SQLite
+      const report = await storage.getReport(shareId);
+      
+      if (!report) {
+        return res.status(404).json({ message: 'Report not found' });
+      }
+      
+      return res.status(200).json(report);
+    } catch (error) {
+      console.error('Error retrieving report:', error);
+      return res.status(500).json({ message: 'Error retrieving report data' });
+    }
+  });
+
+  // Delete a shared report
+  app.delete('/api/reports/:shareId', async (req, res) => {
+    try {
+      const { shareId } = req.params;
+      
+      // Initialize storage if needed
+      await storage.init();
+
+      // Delete the report from SQLite
+      const success = await storage.deleteReport(shareId);
+      
+      if (!success) {
+        return res.status(404).json({ message: 'Report not found or already deleted' });
+      }
+      
+      return res.status(200).json({ message: 'Report deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      return res.status(500).json({ message: 'Error deleting report' });
     }
   });
 

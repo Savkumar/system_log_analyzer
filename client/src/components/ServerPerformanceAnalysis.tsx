@@ -25,20 +25,55 @@ const ServerPerformanceAnalysis = () => {
   const linkRef = useRef<HTMLInputElement>(null);
 
   // Function to generate a shareable link
-  const generateShareableLink = () => {
-    // Generate unique ID based on timestamp and random string
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    setShareId(uniqueId);
+  const generateShareableLink = async () => {
+    try {
+      // Generate unique ID based on timestamp and random string
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setShareId(uniqueId);
 
-    // Create shareable link using current hostname and path
-    const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-    const link = `${baseUrl}?share=${uniqueId}`;
-    setShareLink(link);
-    setShowShareModal(true);
+      // Create shareable link using current hostname and path
+      const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+      const link = `${baseUrl}?share=${uniqueId}`;
+      setShareLink(link);
 
-    // In a real app, we would store the analysis data on the server
-    // For demo purposes, we'll just show the link
-    console.log('Generated shareable link:', link);
+      // Prepare data to save
+      const reportData = {
+        shareId: uniqueId,
+        data: {
+          metrics,
+          overloadEvents,
+          uniqueArls,
+          // We don't include full detailed entries to keep data size manageable
+          detailedEntries: detailedEntries.slice(0, 50), // Just save first 50 entries
+          showRange,
+          timestamp: new Date().toISOString()
+        },
+        description: `Performance analysis report created on ${new Date().toLocaleString()}`
+      };
+
+      // Save to server
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(reportData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save report');
+      }
+
+      setShowShareModal(true);
+      console.log('Generated shareable link:', link);
+    } catch (error) {
+      console.error('Error generating share link:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate share link. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const copyToClipboard = () => {
@@ -58,20 +93,55 @@ const ServerPerformanceAnalysis = () => {
     const sharedId = urlParams.get('share');
     
     if (sharedId) {
-      // In a real implementation, we would fetch the saved analysis data from a server
-      console.log('Loading shared analysis with ID:', sharedId);
-      toast({
-        title: "Shared Analysis",
-        description: "Loading a shared analysis dashboard. Some features may be limited in view-only mode.",
-      });
+      // Load the saved analysis data from the SQLite database
+      const fetchSharedReport = async () => {
+        try {
+          const response = await fetch(`/api/reports/${sharedId}`);
+          
+          if (!response.ok) {
+            throw new Error('Failed to load shared report');
+          }
+          
+          const report = await response.json();
+          console.log('Loaded shared analysis with ID:', sharedId);
+          
+          // Set the share ID
+          setShareId(sharedId);
+          
+          // Extract data from the report
+          if (report.data) {
+            const { metrics: reportMetrics, overloadEvents: reportEvents, 
+                   uniqueArls: reportArls, detailedEntries: reportEntries,
+                   showRange: reportRange } = report.data;
+            
+            // Update local state with the loaded data
+            // Note: In a real implementation, we would have proper state management
+            // This is simplified for demonstration
+            if (reportRange) setShowRange(reportRange);
+            
+            // You would need to update the shared data states through a context or reducer
+            // For now we'll just show a notification that data was loaded
+            toast({
+              title: "Shared Analysis Loaded",
+              description: `Loading a shared analysis created on ${new Date(report.data.timestamp).toLocaleString()}`,
+            });
+          }
+        } catch (error) {
+          console.error('Error loading shared report:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load the shared analysis. It may have expired or been deleted.",
+            variant: "destructive"
+          });
+          
+          // Fall back to refreshing current data
+          refreshData();
+        }
+      };
       
-      // Set the share ID
-      setShareId(sharedId);
-      
-      // Refresh the data to ensure we have the latest
-      refreshData();
+      fetchSharedReport();
     }
-  }, [refreshData, toast]);
+  }, [toast, refreshData]);
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
