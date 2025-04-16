@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./file-storage"; // Changed from SQLite to file-based storage
 import { insertReportSchema } from "@shared/schema";
 import fs from 'fs';
 import path from 'path';
@@ -336,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Initialize storage if needed
       await storage.init();
 
-      // Save the report data to SQLite
+      // Save the report data to file storage
       const report = await storage.createReport({
         shareId,
         data,
@@ -363,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Initialize storage if needed
       await storage.init();
 
-      // Retrieve the report from SQLite
+      // Retrieve the report from file storage
       const report = await storage.getReport(shareId);
       
       if (!report) {
@@ -385,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Initialize storage if needed
       await storage.init();
 
-      // Delete the report from SQLite
+      // Delete the report from file storage
       const success = await storage.deleteReport(shareId);
       
       if (!success) {
