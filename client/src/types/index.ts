@@ -55,10 +55,25 @@ export interface MetricStat {
   avg: number;
 }
 
+export interface TrafficAnomaly {
+  timestamp: number;
+  value: number;
+  deviation: number;
+}
+
+export interface TrafficAnalysisMetrics {
+  correlation: number;
+  patternSimilarity: number;
+  anomalies: TrafficAnomaly[];
+}
+
 export interface Metrics {
   cpu: MetricStat;
   flit: MetricStat;
   cycle: MetricStat;
+  correlation?: number;
+  patternSimilarity?: number;
+  anomalies?: TrafficAnomaly[];
 }
 
 export interface TrafficMetrics {
@@ -104,6 +119,17 @@ export interface RPSData {
   timestamp: number;
   requestCount: number;
   formattedTime: string;
+}
+
+export interface CategoryTrafficData {
+  rpm: RPMData[];
+  rps: RPSData[];
+}
+
+export interface MultiGhostTrafficData {
+  arl: CategoryTrafficData;
+  overall: CategoryTrafficData;
+  withoutArl: CategoryTrafficData;
 }
 
 export interface GhostTrafficData {

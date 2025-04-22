@@ -473,6 +473,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export report as standalone HTML
+  app.post('/api/export-report', async (req, res) => {
+    try {
+      const reportData = req.body;
+      
+      // Optimize data for export
+      const optimizedData = {
+        ...reportData,
+        // Limit detailed entries to reduce size
+        detailedEntries: (reportData.detailedEntries || []).slice(0, 100),
+        // Sample data points if too many
+        data: reportData.data.length > 1000
+          ? reportData.data.filter((_: any, i: number) => i % Math.ceil(reportData.data.length / 1000) === 0)
+          : reportData.data,
+        // Add export timestamp
+        exportedAt: new Date().toISOString()
+      };
+      
+      // Read the standalone template
+      const templatePath = path.join(process.cwd(), 'server-performance-app-standalone.html');
+      let template = fs.readFileSync(templatePath, 'utf8');
+      
+      // Inject the optimized data
+      template = template.replace(
+        '/* REPORT_DATA */',
+        `window.REPORT_DATA = ${JSON.stringify(optimizedData)};`
+      );
+      
+      // Set headers for HTML download
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename=performance-report-${new Date().toISOString().split('T')[0]}.html`);
+      
+      // Send the HTML file
+      res.send(template);
+    } catch (error) {
+      console.error('Error generating report export:', error);
+      res.status(500).json({ message: 'Failed to generate report export' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

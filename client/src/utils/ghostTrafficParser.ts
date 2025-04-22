@@ -1,5 +1,14 @@
 import { RPMData, RPSData, TrafficMetrics } from '../types';
 
+// Helper function to convert month name to number (0-11)
+const getMonthNumber = (month: string): number => {
+  const months: { [key: string]: number } = {
+    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+    'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+  };
+  return months[month] || 0;
+};
+
 /**
  * Parse requests per minute (RPM) data from ghost traffic log
  */
@@ -29,8 +38,19 @@ export const parseRPMData = (logContent: string): RPMData[] => {
         
         // Create a timestamp for sorting/filtering
         // Using a consistent year for relative timestamps
-        const dateStr = `${day} ${month} ${currentYear} ${timeStr}`;
-        const timestamp = new Date(dateStr).getTime() / 1000;
+        // Parse time components
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        
+        // Create UTC date
+        const date = new Date();
+        date.setUTCFullYear(currentYear);
+        date.setUTCMonth(getMonthNumber(month));
+        date.setUTCDate(parseInt(day));
+        date.setUTCHours(hours);
+        date.setUTCMinutes(minutes);
+        date.setUTCSeconds(0);
+        
+        const timestamp = Math.floor(date.getTime() / 1000);
         
         data.push({
           timestamp,
@@ -73,8 +93,19 @@ export const parseRPSData = (logContent: string): RPSData[] => {
         
         // Create a timestamp for sorting/filtering
         // Using a consistent year for relative timestamps
-        const dateStr = `${day} ${month} ${currentYear} ${timeStr}`;
-        const timestamp = new Date(dateStr).getTime() / 1000;
+        // Parse time components
+        const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+        
+        // Create UTC date
+        const date = new Date();
+        date.setUTCFullYear(currentYear);
+        date.setUTCMonth(getMonthNumber(month));
+        date.setUTCDate(parseInt(day));
+        date.setUTCHours(hours);
+        date.setUTCMinutes(minutes);
+        date.setUTCSeconds(seconds);
+        
+        const timestamp = Math.floor(date.getTime() / 1000);
         
         data.push({
           timestamp,

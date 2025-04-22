@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import MetricsSummary from './MetricsSummary';
 import OverloadSummary from './OverloadSummary';
+import { formatTimestamp } from '../utils/logParser';
 import SystemResourcesChart from './SystemResourcesChart';
 import CPUFlitChart from './CPUFlitChart';
 import CRPTimelines from './CRPTimelines';
@@ -11,11 +12,29 @@ import ExecutiveSummary from './ExecutiveSummary';
 import GhostTrafficAnalysis from './GhostTrafficAnalysis';
 import GhostmonLogAnalysis from './GhostmonLogAnalysis';
 import useLogData from '../hooks/useLogData';
-import { TimeRange } from '../types';
+import { useGhostTrafficData } from '../hooks/useGhostTrafficData';
+import { useARLTrafficData } from '../hooks/useARLTrafficData';
+import { TimeRange, RPMData, RPSData, ARLData } from '../types';
 import { useToast } from '@/hooks/use-toast';
 
 const ServerPerformanceAnalysis = () => {
-  const { data, overloadEvents, detailedEntries, metrics, uniqueArls, loading, refreshData } = useLogData();
+  const { data, overloadEvents, detailedEntries, metrics: baseMetrics, uniqueArls, loading, refreshData } = useLogData();
+  const [trafficAnalysis, setTrafficAnalysis] = useState<{
+    correlation: number;
+    patternSimilarity: number;
+    anomalies: { timestamp: number; value: number; deviation: number }[];
+  } | null>(null);
+
+  const metrics = useMemo(() => ({
+    ...baseMetrics,
+    ...(trafficAnalysis && {
+      correlation: trafficAnalysis.correlation,
+      patternSimilarity: trafficAnalysis.patternSimilarity,
+      anomalies: trafficAnalysis.anomalies
+    })
+  }), [baseMetrics, trafficAnalysis]);
+  const { rpmData, rpsData, metrics: trafficMetrics } = useGhostTrafficData();
+  const { arlRPMData, arlRPSData } = useARLTrafficData();
   const [showRange, setShowRange] = useState<TimeRange>('all');
   const [showDetailedTable, setShowDetailedTable] = useState<boolean>(false);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -48,7 +67,7 @@ const ServerPerformanceAnalysis = () => {
           showRange,
           timestamp: new Date().toISOString()
         },
-        description: `Performance analysis report created on ${new Date().toLocaleString()}`
+        description: `Performance analysis report created on ${formatTimestamp(Math.floor(Date.now() / 1000))}`
       };
 
       // Save to server
@@ -123,7 +142,7 @@ const ServerPerformanceAnalysis = () => {
             // For now we'll just show a notification that data was loaded
             toast({
               title: "Shared Analysis Loaded",
-              description: `Loading a shared analysis created on ${new Date(report.data.timestamp).toLocaleString()}`,
+              description: `Loading a shared analysis created on ${formatTimestamp(Math.floor(new Date(report.data.timestamp).getTime() / 1000))}`,
             });
           }
         } catch (error) {
@@ -176,9 +195,66 @@ const ServerPerformanceAnalysis = () => {
             <i className="ri-share-line"></i>
             <span>Share</span>
           </button>
-          <button className="flex items-center gap-1 px-4 py-2 border border-primary text-primary rounded hover:bg-primary hover:text-white transition-colors">
+          <button
+            onClick={async () => {
+              try {
+                // Prepare report data
+                const reportData = {
+                  data,
+                  overloadEvents,
+                  metrics,
+                  uniqueArls,
+                  detailedEntries: detailedEntries.slice(0, 50),
+                  ghostRPM: rpmData.map(d => d.requestCount),
+                  ghostRPS: rpsData.map(d => d.requestCount),
+                  arlRPM: arlRPMData.flatMap(d => d.requests.map(r => r.requestCount)),
+                  arlRPS: arlRPSData.flatMap(d => d.requests.map(r => r.requestCount)),
+                  timestamp: new Date().toISOString()
+                };
+
+                // Request standalone HTML bundle
+                const response = await fetch('/api/export-report', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(reportData)
+                });
+
+                if (!response.ok) {
+                  throw new Error('Failed to generate report');
+                }
+
+                // Get the HTML content
+                const blob = await response.blob();
+                
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `performance-report-${new Date().toISOString().split('T')[0]}.html`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                toast({
+                  title: "Report Exported",
+                  description: "Your interactive report has been downloaded successfully."
+                });
+              } catch (error) {
+                console.error('Error exporting report:', error);
+                toast({
+                  title: "Export Failed",
+                  description: "Failed to generate report. Please try again.",
+                  variant: "destructive"
+                });
+              }
+            }}
+            className="flex items-center gap-1 px-4 py-2 border border-primary text-primary rounded hover:bg-primary hover:text-white transition-colors"
+          >
             <i className="ri-download-line"></i>
-            <span>Export</span>
+            <span>Export Report</span>
           </button>
         </div>
       </header>
@@ -194,11 +270,20 @@ const ServerPerformanceAnalysis = () => {
         </div>
       ) : (
         <div>
-          <ExecutiveSummary 
+          <ExecutiveSummary
             data={data}
             overloadEvents={overloadEvents}
             metrics={metrics}
             uniqueArls={uniqueArls}
+            ghostRPM={rpmData.map((d: RPMData) => d.requestCount)}
+            ghostRPS={rpsData.map((d: RPSData) => d.requestCount)}
+            arlRPM={arlRPMData.flatMap((d: ARLData) => d.requests.map(r => r.requestCount))}
+            arlRPS={arlRPSData.flatMap((d: ARLData) => d.requests.map(r => r.requestCount))}
+            memoryUsage={detailedEntries.map(entry => ({
+              timestamp: entry.timestamp,
+              value: entry.mem_rss || 0
+            }))}
+            detailedEntries={detailedEntries}
           />
           
           <MetricsSummary metrics={metrics} />
@@ -237,7 +322,9 @@ const ServerPerformanceAnalysis = () => {
           
           {/* Ghost Traffic Analysis Section */}
           <div className="mt-8 pt-8 border-t border-gray-200">
-            <GhostTrafficAnalysis />
+            <GhostTrafficAnalysis
+              onTrafficAnalysis={setTrafficAnalysis}
+            />
           </div>
           
           {/* Ghostmon Log Analysis Section */}

@@ -84,7 +84,7 @@ const DetailedLogTable = ({ data, showRange }: DetailedLogTableProps) => {
             <tbody className="bg-white divide-y divide-gray-200">
               {displayData.map((entry, index) => (
                 <tr key={index} className={entry.crp_arlid ? "bg-yellow-50" : "hover:bg-gray-50"}>
-                  <td className="px-3 py-2 whitespace-nowrap font-mono">{entry.timestamp}</td>
+                  <td className="px-3 py-2 whitespace-nowrap font-mono">{formatTimestamp(entry.timestamp)}</td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono">{entry.http_accepts}</td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono">{entry.https_accepts}</td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono">{entry.flit}%</td>

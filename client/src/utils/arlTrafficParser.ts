@@ -63,7 +63,16 @@ export const parseARLRPMData = (logContent: string): ARLData[] => {
       
       const now = new Date();
       const year = now.getFullYear();
-      const date = new Date(year, monthMap[month], parseInt(day), parseInt(hour), parseInt(minute));
+      
+      // Create UTC date
+      const date = new Date();
+      date.setUTCFullYear(year);
+      date.setUTCMonth(monthMap[month]);
+      date.setUTCDate(parseInt(day));
+      date.setUTCHours(parseInt(hour));
+      date.setUTCMinutes(parseInt(minute));
+      date.setUTCSeconds(0);
+      
       const timestamp = Math.floor(date.getTime() / 1000);
       
       currentRequests.push({
@@ -148,7 +157,16 @@ export const parseARLRPSData = (logContent: string): ARLData[] => {
       
       const now = new Date();
       const year = now.getFullYear();
-      const date = new Date(year, monthMap[month], parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+      
+      // Create UTC date
+      const date = new Date();
+      date.setUTCFullYear(year);
+      date.setUTCMonth(monthMap[month]);
+      date.setUTCDate(parseInt(day));
+      date.setUTCHours(parseInt(hour));
+      date.setUTCMinutes(parseInt(minute));
+      date.setUTCSeconds(parseInt(second));
+      
       const timestamp = Math.floor(date.getTime() / 1000);
       
       currentRequests.push({

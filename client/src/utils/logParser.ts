@@ -5,11 +5,11 @@ export const formatTimestamp = (timestamp: number): string => {
   if (!timestamp) return '';
   
   const date = new Date(timestamp * 1000);
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
+  const hours = date.getUTCHours().toString().padStart(2, '0');
+  const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  const seconds = date.getUTCSeconds().toString().padStart(2, '0');
   
-  return `${hours}:${minutes}:${seconds}`;
+  return `${hours}:${minutes}:${seconds} UTC`;
 };
 
 // Parse log file content
@@ -298,6 +298,7 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
   
   // Create a map of timestamps to processMainLoop info with proper typing
   const triggerInfoByTimestamp = new Map<number, TriggerInfo>();
+  let bestMatch: TriggerInfo | null = null;
   
   mainLoopLines.forEach(line => {
     const timestampMatch = line.match(/^(\d+\.\d+)/);
@@ -330,13 +331,12 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
     const eventTimestamp = event.timestamp;
     
     // Try to find an exact match first
-    let bestMatch = null;
+    bestMatch = null;
     let bestTimeDiff = Infinity;
     
     // Find the closest trigger info for this event - using Array.from to avoid TypeScript downlevelIteration issues
     Array.from(triggerInfoByTimestamp.entries()).forEach((entry) => {
-      const triggerTimestamp = entry[0]; // First element is the key (timestamp)
-      const triggerInfo = entry[1] as TriggerInfo; // Second element is the value (TriggerInfo)
+      const [triggerTimestamp, triggerInfo] = entry;
       
       const timeDiff = Math.abs(eventTimestamp - triggerTimestamp);
       
@@ -348,7 +348,7 @@ export const parseDetailedLogEntries = async (logContent: string): Promise<Detai
     });
     
     // If a match was found, update the event
-    if (bestMatch) {
+    if (bestMatch !== null) {
       event.crp_triggered_by = bestMatch.triggerType;
       event.crp_triggered_pct = bestMatch.triggerValue * 100; // Scale to percentage
       console.log(`[parseDetailedLogEntries] Matched event at ${eventTimestamp} with trigger: ${bestMatch.triggerType}`);

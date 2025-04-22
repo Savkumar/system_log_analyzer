@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useGhostmonData } from '../hooks/useGhostmonData';
 import GhostmonLogUploader from './GhostmonLogUploader';
 import { GhostmonLogEntry } from '../types';
+import { formatTimestamp } from '../utils/logParser';
 
 const GhostmonLogAnalysis = () => {
   const { 
@@ -18,9 +19,7 @@ const GhostmonLogAnalysis = () => {
   const [showRange, setShowRange] = useState<'all' | 'peak'>('all');
 
   const formatTime = (timestamp: number) => {
-    // Find the corresponding data point and use its formatted time
-    const dataPoint = filteredEntries.find(d => d.timestamp === timestamp);
-    return dataPoint ? new Date(timestamp * 1000).toLocaleTimeString() : '';
+    return formatTimestamp(timestamp);
   };
 
   const handleFileUploaded = (content: string) => {

@@ -1,489 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Server Performance Analysis - Standalone Version</title>
-  <style>
-    /* Base styling */
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      line-height: 1.6;
-      margin: 0;
-      padding: 0;
-      color: #333;
-      background-color: #f5f7fa;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Performance Analysis Report</title>
     
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+    <!-- Include Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
+    <!-- Include Recharts -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
     
-    h1 {
-      color: #2563eb;
-      margin: 0;
-      font-size: 24px;
-    }
+    <!-- Include Remix Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
     
-    .header-subtitle {
-      color: #64748b;
-      margin-top: 5px;
-    }
-    
-    .header-buttons {
-      display: flex;
-      gap: 10px;
-    }
-    
-    button {
-      background-color: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 8px 16px;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    
-    button.secondary {
-      background-color: transparent;
-      color: #2563eb;
-      border: 1px solid #2563eb;
-    }
-    
-    .uploader {
-      background-color: white;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 30px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-    
-    .uploader-inner {
-      border: 2px dashed #cbd5e1;
-      border-radius: 4px;
-      padding: 40px 20px;
-      text-align: center;
-      transition: all 0.3s;
-    }
-    
-    .uploader-inner:hover {
-      border-color: #2563eb;
-    }
-    
-    .uploader-icon {
-      font-size: 40px;
-      color: #64748b;
-      margin-bottom: 10px;
-    }
-    
-    .chart-container {
-      background-color: white;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 30px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-    
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-    
-    .chart-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #0f172a;
-      margin: 0;
-    }
-    
-    .range-selector {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-bottom: 15px;
-    }
-    
-    .range-button {
-      background-color: #f1f5f9;
-      color: #64748b;
-      border: none;
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 12px;
-      cursor: pointer;
-    }
-    
-    .range-button.active {
-      background-color: #2563eb;
-      color: white;
-    }
-    
-    .metrics-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-    
-    .metric-card {
-      background-color: white;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-    
-    .metric-title {
-      font-size: 14px;
-      color: #64748b;
-      margin: 0 0 10px 0;
-    }
-    
-    .metric-value {
-      font-size: 24px;
-      font-weight: 600;
-      color: #0f172a;
-      margin: 0;
-    }
-    
-    .metric-value.alert {
-      color: #dc2626;
-    }
-    
-    .table-container {
-      background-color: white;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 30px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      overflow-x: auto;
-    }
-    
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    
-    th, td {
-      padding: 12px 15px;
-      text-align: left;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    
-    th {
-      background-color: #f8fafc;
-      font-weight: 600;
-      color: #64748b;
-      font-size: 14px;
-    }
-    
-    tr:last-child td {
-      border-bottom: none;
-    }
-    
-    .placeholder-chart {
-      width: 100%;
-      height: 300px;
-      background-color: #f8fafc;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #94a3b8;
-      font-size: 14px;
-    }
-    
-    @media (max-width: 768px) {
-      header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      
-      .header-buttons {
-        margin-top: 20px;
-      }
-      
-      .metrics-container {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+    <style>
+        /* Custom styles */
+        body {
+            background-color: #f9fafb;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>Server Performance Analysis</h1>
-        <p class="header-subtitle">Real-time monitoring and visualization of server metrics</p>
-      </div>
-      <div class="header-buttons">
-        <button id="refresh-button">
-          <span>⟳</span>
-          <span>Refresh</span>
-        </button>
-        <button id="table-button" class="secondary">
-          <span>☰</span>
-          <span>Show Detailed Table</span>
-        </button>
-        <button id="share-button">
-          <span>↗</span>
-          <span>Share</span>
-        </button>
-        <button id="export-button" class="secondary">
-          <span>↓</span>
-          <span>Export</span>
-        </button>
-      </div>
-    </header>
-    
-    <div class="uploader">
-      <div class="uploader-inner" id="dropzone">
-        <div class="uploader-icon">📁</div>
-        <h3>Drag & Drop Log Files</h3>
-        <p>or <button id="browse-files">Browse Files</button></p>
-        <p>Supported formats: .log, .txt, .gz</p>
-        <input type="file" id="file-input" style="display: none;" accept=".log,.txt,.gz">
-      </div>
-    </div>
-    
-    <div id="analysis-content" style="display: none;">
-      <div class="metrics-container">
-        <div class="metric-card">
-          <h4 class="metric-title">CPU Usage (Avg)</h4>
-          <p class="metric-value" id="cpu-avg">--</p>
-        </div>
-        <div class="metric-card">
-          <h4 class="metric-title">CPU Usage (Max)</h4>
-          <p class="metric-value" id="cpu-max">--</p>
-        </div>
-        <div class="metric-card">
-          <h4 class="metric-title">FLIT Percentage (Avg)</h4>
-          <p class="metric-value" id="flit-avg">--</p>
-        </div>
-        <div class="metric-card">
-          <h4 class="metric-title">FLIT Percentage (Max)</h4>
-          <p class="metric-value alert" id="flit-max">--</p>
-        </div>
-      </div>
-      
-      <div class="chart-container">
-        <div class="chart-header">
-          <h3 class="chart-title">System Resources Timeline</h3>
-          <div class="range-selector">
-            <button class="range-button">5s</button>
-            <button class="range-button">10s</button>
-            <button class="range-button">15s</button>
-            <button class="range-button">30s</button>
-            <button class="range-button">1m</button>
-            <button class="range-button">10m</button>
-            <button class="range-button">30m</button>
-            <button class="range-button">1h</button>
-            <button class="range-button active">all</button>
-          </div>
-        </div>
-        <div class="placeholder-chart" id="system-resources-chart">
-          Upload a log file to see the analysis
-        </div>
-      </div>
-      
-      <div class="chart-container">
-        <div class="chart-header">
-          <h3 class="chart-title">CPU & FLIT Percentage</h3>
-        </div>
-        <div class="placeholder-chart" id="cpu-flit-chart">
-          Upload a log file to see the analysis
-        </div>
-      </div>
-      
-      <div class="chart-container">
-        <div class="chart-header">
-          <h3 class="chart-title">Overload Events</h3>
-        </div>
-        <div class="placeholder-chart" id="overload-events-chart">
-          Upload a log file to see the analysis
-        </div>
-      </div>
-      
-      <div class="table-container" id="overload-events-table">
-        <h3 class="chart-title">Overload Events</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Trigger Type</th>
-              <th>Trigger Value</th>
-              <th>ARL ID</th>
-              <th>Rule</th>
-              <th>CPU %</th>
-              <th>FLIT %</th>
-            </tr>
-          </thead>
-          <tbody id="events-table-body">
-            <tr>
-              <td colspan="7" style="text-align: center;">No overload events detected</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+    <div id="root"></div>
 
-  <script>
-    // DOM Elements
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('file-input');
-    const browseFiles = document.getElementById('browse-files');
-    const analysisContent = document.getElementById('analysis-content');
-    const tableButton = document.getElementById('table-button');
-    const refreshButton = document.getElementById('refresh-button');
-    const shareButton = document.getElementById('share-button');
-    const exportButton = document.getElementById('export-button');
-    
-    // Sample data processing function (in a real implementation, this would parse the log files)
-    function processLogFile(fileContent) {
-      // Just a stub implementation - in a real app, this would parse the log file
-      // and extract metrics, events, etc.
-      console.log('Processing log file with length:', fileContent.length);
-      
-      // Sample metrics
-      document.getElementById('cpu-avg').textContent = '62.5%';
-      document.getElementById('cpu-max').textContent = '97.7%';
-      document.getElementById('flit-avg').textContent = '58.3%';
-      document.getElementById('flit-max').textContent = '96.4%';
-      
-      // Show the analysis section
-      analysisContent.style.display = 'block';
-      
-      // In a real implementation, this would update charts and tables based on the data
-      // For now, we're just showing placeholders
-      document.getElementById('system-resources-chart').textContent = 'Chart would be displayed here';
-      document.getElementById('cpu-flit-chart').textContent = 'Chart would be displayed here';
-      document.getElementById('overload-events-chart').textContent = 'Chart would be displayed here';
-      
-      // Sample table data
-      const tableBody = document.getElementById('events-table-body');
-      tableBody.innerHTML = `
-        <tr>
-          <td>2025-04-10 23:17:08</td>
-          <td>CPU</td>
-          <td>96.8%</td>
-          <td>417743</td>
-          <td>rule_cpu_1</td>
-          <td>74%</td>
-          <td>75%</td>
-        </tr>
-        <tr>
-          <td>2025-04-10 23:17:16</td>
-          <td>CPU</td>
-          <td>96.9%</td>
-          <td>801330</td>
-          <td>rule_cpu_1</td>
-          <td>56%</td>
-          <td>59%</td>
-        </tr>
-        <tr>
-          <td>2025-04-10 23:18:33</td>
-          <td>CPU</td>
-          <td>97.7%</td>
-          <td>859807</td>
-          <td>rule_cpu_1</td>
-          <td>61%</td>
-          <td>59%</td>
-        </tr>
-      `;
-    }
-    
-    // File handling
-    function handleFiles(files) {
-      if (files.length === 0) return;
-      
-      const file = files[0];
-      const reader = new FileReader();
-      
-      reader.onload = function(e) {
-        const fileContent = e.target.result;
-        processLogFile(fileContent);
-      };
-      
-      reader.readAsText(file);
-    }
-    
-    // Event listeners
-    browseFiles.addEventListener('click', () => {
-      fileInput.click();
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-      handleFiles(e.target.files);
-    });
-    
-    dropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropzone.style.borderColor = '#2563eb';
-      dropzone.style.backgroundColor = '#eff6ff';
-    });
-    
-    dropzone.addEventListener('dragleave', () => {
-      dropzone.style.borderColor = '#cbd5e1';
-      dropzone.style.backgroundColor = 'transparent';
-    });
-    
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.style.borderColor = '#cbd5e1';
-      dropzone.style.backgroundColor = 'transparent';
-      
-      handleFiles(e.dataTransfer.files);
-    });
-    
-    // Button event listeners
-    tableButton.addEventListener('click', () => {
-      if (tableButton.textContent.includes('Show')) {
-        tableButton.innerHTML = '<span>☰</span> <span>Hide Detailed Table</span>';
-        // In a real implementation, this would show a detailed table
-      } else {
-        tableButton.innerHTML = '<span>☰</span> <span>Show Detailed Table</span>';
-        // In a real implementation, this would hide a detailed table
-      }
-    });
-    
-    refreshButton.addEventListener('click', () => {
-      alert('In a real implementation, this would refresh the data');
-    });
-    
-    shareButton.addEventListener('click', () => {
-      alert('In a real implementation, this would show a share dialog');
-    });
-    
-    exportButton.addEventListener('click', () => {
-      alert('In a real implementation, this would export the data');
-    });
-    
-    // Range button event listeners
-    document.querySelectorAll('.range-button').forEach(button => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('.range-button').forEach(btn => {
-          btn.classList.remove('active');
-        });
-        button.classList.add('active');
-        
-        // In a real implementation, this would update the charts based on the selected range
-      });
-    });
-  </script>
+    <!-- Injected report data -->
+    <script>
+        /* REPORT_DATA */
+    </script>
+
+    <!-- Application code -->
+    <script>
+        const { useState } = React;
+        const { 
+            LineChart, Line, XAxis, YAxis, CartesianGrid, 
+            Tooltip, Legend, ResponsiveContainer, ReferenceLine 
+        } = Recharts;
+
+        // Format timestamp for display
+        function formatTime(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+        }
+
+        function App() {
+            const reportData = window.REPORT_DATA;
+            const [showDetailedTable, setShowDetailedTable] = useState(false);
+
+            return (
+                <div className="container mx-auto px-4 py-6 max-w-7xl">
+                    <header className="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 className="text-3xl font-bold text-primary">Server Performance Analysis Report</h1>
+                            <p className="text-gray-600">Generated on {new Date(reportData.timestamp).toLocaleString()}</p>
+                            <p className="text-gray-500 text-sm">Exported on {new Date(reportData.exportedAt).toLocaleString()}</p>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                            {reportData.data.length} data points
+                            {reportData.data.length > 1000 && " (sampled)"}
+                        </div>
+                    </header>
+
+                    {/* Executive Summary */}
+                    <div className="mb-8">
+                        <h2 className="text-xl font-semibold mb-4">Executive Summary</h2>
+                        <div className="bg-white rounded-lg shadow p-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <div className="bg-blue-50 rounded-lg p-4">
+                                    <h3 className="text-lg font-medium text-blue-700">CPU Usage</h3>
+                                    <p className="text-2xl font-bold">{reportData.metrics.cpu.max}%</p>
+                                    <p className="text-sm text-blue-600">Peak CPU Utilization</p>
+                                </div>
+                                <div className="bg-purple-50 rounded-lg p-4">
+                                    <h3 className="text-lg font-medium text-purple-700">FLIT</h3>
+                                    <p className="text-2xl font-bold">{reportData.metrics.flit.max}%</p>
+                                    <p className="text-sm text-purple-600">Peak FLIT Percentage</p>
+                                </div>
+                                <div className="bg-green-50 rounded-lg p-4">
+                                    <h3 className="text-lg font-medium text-green-700">Manager Cycle</h3>
+                                    <p className="text-2xl font-bold">{reportData.metrics.cycle.avg.toFixed(2)}ms</p>
+                                    <p className="text-sm text-green-600">Average Cycle Time</p>
+                                </div>
+                                <div className="bg-red-50 rounded-lg p-4">
+                                    <h3 className="text-lg font-medium text-red-700">Overload Events</h3>
+                                    <p className="text-2xl font-bold">{reportData.overloadEvents.length}</p>
+                                    <p className="text-sm text-red-600">Total Events</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* System Resources Chart */}
+                    <div className="chart-container">
+                        <h3 className="text-lg font-medium mb-4">System Resources Timeline</h3>
+                        <div style={{ width: '100%', height: 400 }}>
+                            <ResponsiveContainer>
+                                <LineChart data={reportData.data}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis 
+                                        dataKey="timestamp" 
+                                        tickFormatter={formatTime}
+                                    />
+                                    <YAxis />
+                                    <Tooltip 
+                                        formatter={(value, name) => [
+                                            `${value}${name.includes('%') ? '%' : 'ms'}`,
+                                            name
+                                        ]}
+                                        labelFormatter={formatTime}
+                                    />
+                                    <Legend />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="cpu_all" 
+                                        name="CPU %" 
+                                        stroke="#ff0000" 
+                                        dot={false}
+                                    />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="flit" 
+                                        name="FLIT %" 
+                                        stroke="#0000ff" 
+                                        dot={false}
+                                    />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="avg_manager_cycle" 
+                                        name="Manager Cycle (ms)" 
+                                        stroke="#00aa00" 
+                                        dot={false}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Detailed Events Table */}
+                    <div className="mb-8">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-medium">Overload Events</h3>
+                            <button
+                                onClick={() => setShowDetailedTable(!showDetailedTable)}
+                                className="px-4 py-2 text-sm border rounded hover:bg-gray-50"
+                            >
+                                {showDetailedTable ? 'Hide Details' : 'Show Details'}
+                            </button>
+                        </div>
+                        {showDetailedTable && (
+                            <div className="bg-white rounded-lg shadow overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPU</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">FLIT</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cycle</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ARL ID</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {(reportData.overloadEvents || []).slice(0, 100).map((event, index) => (
+                                            <tr key={index}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {formatTime(event.timestamp)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {event.cpu_all}%
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {event.flit}%
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {event.avg_manager_cycle.toFixed(2)}ms
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {event.arlid || 'N/A'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the application
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
