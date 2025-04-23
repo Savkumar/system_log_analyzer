@@ -132,3 +132,4 @@ The application supports several types of log files:
 
 MIT
 # system_perf_analyzer
+# system_log_analyzer
